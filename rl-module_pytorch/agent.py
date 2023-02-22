@@ -112,6 +112,7 @@ class Agent():
         self.gamma = gamma
         self.train_dir = './train_dir'
         self.step_epochs = tf.Variable(0, trainable=False, name='epoch')
+        # TODO: 
         self.global_step = tf.train.get_or_create_global_step(graph=None)
 
 
@@ -170,6 +171,7 @@ class Agent():
         self.target_critic_update_op = self.target_update_op(self.target_critic.train_var(), self.critic.train_var(), tau)
         self.target_critic_update_op2 = self.target_update_op(self.target_critic2.train_var(), self.critic2.train_var(), tau)
 
+        # TODO: tf: copy actor, assign actor/critic's weights to target actor/critic
         self.target_act_init_op = self.target_init(self.target_actor.train_var(), self.actor.train_var())
         self.target_cri_init_op = self.target_init(self.target_critic.train_var(), self.critic.train_var())
         self.target_cri_init_op2 = self.target_init(self.target_critic2.train_var(), self.critic2.train_var())
@@ -250,6 +252,7 @@ class Agent():
         self.summary_op = tf.summary.merge_all()
 
     def init_target(self):
+        # TODO: run session
         self.sess.run(self.target_act_init_op)
         self.sess.run(self.target_cri_init_op)
         self.sess.run(self.target_cri_init_op2)
@@ -261,6 +264,7 @@ class Agent():
         t_a = tf.clip_by_value(t_a, -1.0, 1.0)
         return t_a
 
+    # TODO: update this part
     def assign_sess(self, sess):
         self.sess = sess
 
@@ -283,7 +287,7 @@ class Agent():
         self.a_loss = -tf.reduce_mean(self.critic_actor_out)
         return self.actor_optimizer.minimize(self.a_loss, var_list=self.actor.train_var(), global_step = self.global_step)
 
-    def target_init(self, target, vars):
+    def target_init(self, target, vars): # TODO: tf trainable variables
         return [tf.assign(target[i], vars[i]) for i in range(len(vars))]
 
     def target_update_op(self, target, vars, tau):
