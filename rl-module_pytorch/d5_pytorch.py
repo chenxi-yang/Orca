@@ -8,7 +8,8 @@ import tensorflow as tf
 
 import torch
 import sys
-from agent import Agent
+# from agent import Agent
+from agent_pytorch import Agent
 import os
 # TODO set up new logger path
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -24,6 +25,7 @@ import pickle
 from utils import logger, Params
 from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 
+# noise type: default: gaussian
 
 def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]
@@ -36,7 +38,6 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
     eval_length = params.dict['max_eps_steps']
     start_time = time.time()
     for _ in range(eval_times):
-
         step_counter = 0
         ep_r = 0.0
 
@@ -52,7 +53,6 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
         env.write_action(a)
 
         while True:
-
             eval_step_counter += 1
             step_counter += 1
 
@@ -78,29 +78,29 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
             ep_r = ep_r+r
 
 
-            if (step_counter+1) % params.dict['tb_interval'] == 0:
+            # TODO: add pytorch logger
+            # if (step_counter+1) % params.dict['tb_interval'] == 0:
 
-                summary = tf.summary.Summary()
-                summary.value.add(tag='Eval/Step/0-Actions', simple_value=env.map_action(a))
-                summary.value.add(tag='Eval/Step/2-Reward', simple_value=r)
-            summary_writer.add_summary(summary, eval_step_counter)
+            #     summary = tf.summary.Summary()
+            #     summary.value.add(tag='Eval/Step/0-Actions', simple_value=env.map_action(a))
+            #     summary.value.add(tag='Eval/Step/2-Reward', simple_value=r)
+            # summary_writer.add_summary(summary, eval_step_counter)
 
             s0 = s1
             a = a1
             if params.dict['recurrent']:
                 s0_rec_buffer = s1_rec_buffer
 
-
             if step_counter == eval_length or terminal:
                 score_list.append(ep_r)
                 break
 
-    summary = tf.summary.Summary()
-    summary.value.add(tag='Eval/Return', simple_value=np.mean(score_list))
-    summary_writer.add_summary(summary, epoch)
+    # TODO: add pytorch logger
+    # summary = tf.summary.Summary()
+    # summary.value.add(tag='Eval/Return', simple_value=np.mean(score_list))
+    # summary_writer.add_summary(summary, epoch)
 
     return eval_step_counter
-
 
 
 class learner_killer():
@@ -111,7 +111,7 @@ class learner_killer():
         print("learner register sigterm")
         signal.signal(signal.SIGTERM, self.handler_term)
         print("test length:", self.replay_buf.length_buf)
-    def handler_term(self, signum, frame):
+    def handler_term(self, signum, frame): # TODO: signum, frame not used
         if not config.eval:
             with open(os.path.join(params.dict['train_dir'], "replay_memory.pkl"), "wb") as fp:
                 pickle.dump(self.replay_buf, fp)
@@ -146,7 +146,7 @@ def main():
     ## parameters from file
     params = Params(os.path.join(config.base_path,'params.json'))
 
-
+    # TODO: update the distributed training process 
     if params.dict['single_actor_eval']:
         local_job_device = ''
         shared_job_device = ''
@@ -235,10 +235,12 @@ def main():
         with tf.device(shared_job_device):
             
             # TODO: update the summary, ini agent
+            # TODO: update the device setting
             agent = Agent(s_dim, a_dim, batch_size=params.dict['batch_size'], summary=summary_writer,h1_shape=params.dict['h1_shape'],
                         h2_shape=params.dict['h2_shape'],stddev=params.dict['stddev'],mem_size=params.dict['memsize'],gamma=params.dict['gamma'],
                         lr_c=params.dict['lr_c'],lr_a=params.dict['lr_a'],tau=params.dict['tau'],PER=params.dict['PER'],CDQ=params.dict['CDQ'],
-                        LOSS_TYPE=params.dict['LOSS_TYPE'],noise_type=params.dict['noise_type'],noise_exp=params.dict['noise_exp'])
+                        LOSS_TYPE=params.dict['LOSS_TYPE'],noise_type=params.dict['noise_type'],
+                        noise_exp=params.dict['noise_exp'], device=params.dict['device'])
 
             # todo: pytorch dtypes
             dtypes = [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32]
@@ -440,10 +442,9 @@ def main():
                     if (epoch% params.dict['eval_frequency'] == 0):
                         eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter)
 
-
                 print("total time:", time.time()-start)
 
-def learner_dequeue_thread(agent,params, mon_sess, dequeue, queuesize_op, Dequeue_Length):
+def learner_dequeue_thread(agent, params, mon_sess, dequeue, queuesize_op, Dequeue_Length):
     ct = 0
     while True:
         ct = ct + 1
