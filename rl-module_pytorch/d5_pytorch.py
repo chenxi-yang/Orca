@@ -66,7 +66,7 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
                 else:
                     a1 = agent.get_action(s1, False)
 
-                a1 = a1[0][0]
+                a1 = a1[0][0] # why is this necessary?
 
                 env.write_action(a1)
 
@@ -124,7 +124,7 @@ class learner_killer():
 def main():
 
     # TODO update pytorch logger
-    tf.get_logger().setLevel(logging.ERROR)
+    # tf.get_logger().setLevel(logging.ERROR)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--load', action='store_true', default=False, help='default is  %(default)s')
