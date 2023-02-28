@@ -312,57 +312,58 @@ def main():
     # each learner, periodically read all the files in the directory (when all the actor finishes)
     # first, store learner's NN data
     # and assign the parameters to the actor
+    # have a signal file (know if all the actors are finished or not)
     if is_learner: # is learner
 
         if config.eval is True:
             print("=========================Learner is up===================")
-            while not mon_sess.should_stop():
-                time.sleep(1)
-                continue
+            # TODO: pytorch, no kill signal
+            # while not mon_sess.should_stop():
+                # time.sleep(1)
+                # continue
 
         if config.load is False:
-            # TODO: pytorch, init target session
             agent.init_target()
 
         counter = 0
         start = time.time()
 
-        # TODO: learner dequeue thread: get all the data from thread
-        dequeue_thread = threading.Thread(target=learner_dequeue_thread, args=(agent,params, mon_sess, dequeue, queuesize_op, Dequeue_Length),daemon=True)
-        first_time=True
+        # save model (the randomly initialized model)
+        agent.save_model()
 
-        while not mon_sess.should_stop(): # Question: what is this for? (should_stop)
+        while counter < params.dict['max_epochs']: # 1m epochs
+            # check the signal file
+            # if all the actors are finished, then read all the files
+            all_actor_finishes = False
+            while True:
+                # check the signal file
+                all_actor_finishes = True
+                if all_actor_finishes:
+                    break
 
-            if first_time == True:
-                dequeue_thread.start()
-                first_time=False
+            #TODO: read all the files
+            data = read_from_all_files(params.dict['train_dir'], params.dict['num_actors'])
+            update_agent()
+            data_length = len(data[0])
+            agent.store_many_experience(data[0], data[1], data[2], data[3], data[4], data_length)
 
-            up_del_tmp=params.dict['update_delay']/1000.0
-            time.sleep(up_del_tmp)
-            if agent.rp_buffer.ptr > 200 or agent.rp_buffer.full:
-                agent.train_step()
-                if params.dict['use_hard_target'] == False:
-                    # TODO: pytorch update target
-                    agent.target_update()
-
-                    if counter %params.dict['hard_target'] == 0 :
-                        # TODO: run session/agent, what is global_step?
-                        current_opt_step = agent.sess.run(agent.global_step)
-                        logger.info("Optimize step:{}".format(current_opt_step))
-                        logger.info("rp_buffer ptr:{}".format(agent.rp_buffer.ptr))
-
-                else:
-                    if counter %params.dict['hard_target'] == 0 :
-
-                        agent.target_update()
-                        current_opt_step = agent.sess.run(agent.global_step)
-                        logger.info("Optimize step:{}".format(current_opt_step))
-                        logger.info("rp_buffer ptr:{}".format(agent.rp_buffer.ptr))
+            agent.train_step()
+            if params.dict['use_hard_target'] == False:
+                agent.target_update()
+            else:
+                if counter % params.dict['hard_target'] == 0 :
+                    agent.target_update() # hard target update
 
             counter += 1
 
+            # TODO: 
+            agent.save_model()
 
     else: # is normal actor
+        # load NN from learner's file
+# constantly write the replay buffer to the directory
+# start with one actor version
+# store a signal to a signal file (know if all the actors are finished or not) with the actor idx
             start = time.time()
             step_counter = np.int64(0)
             eval_step_counter = np.int64(0)
@@ -430,23 +431,23 @@ def main():
 
             print("total time:", time.time()-start)
 
-def learner_dequeue_thread(agent, params, mon_sess, dequeue, queuesize_op, Dequeue_Length):
-    ct = 0
-    while True:
-        ct = ct + 1
-        # TODO: what is mon_sess's input, how did it change the queue?
-        data = mon_sess.run(dequeue)
-        agent.store_many_experience(data[0], data[1], data[2], data[3], data[4], Dequeue_Length)
-        time.sleep(0.01)
+# def learner_dequeue_thread(agent, params, mon_sess, dequeue, queuesize_op, Dequeue_Length):
+#     ct = 0
+#     while True:
+#         ct = ct + 1
+#         # TODO: what is mon_sess's input, how did it change the queue?
+#         data = mon_sess.run(dequeue)
+#         agent.store_many_experience(data[0], data[1], data[2], data[3], data[4], Dequeue_Length)
+#         time.sleep(0.01)
 
-
-def learner_update_thread(agent,params):
-    delay=params.dict['update_delay']/1000.0
-    ct = 0
-    while True:
-        agent.train_step()
-        agent.target_update()
-        time.sleep(delay)
+# what does this for???
+# def learner_update_thread(agent,params):
+#     delay=params.dict['update_delay']/1000.0
+#     ct = 0
+#     while True:
+#         agent.train_step()
+#         agent.target_update()
+#         time.sleep(delay)
 
 
 if __name__ == "__main__":
