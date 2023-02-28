@@ -6,7 +6,7 @@ then
     port_base=$2
     cur_dir=`pwd -P`
     scheme_="cubic"
-    max_steps=500000         #Run untill you collect 50k samples per actor
+    max_steps=50000         #todo Run untill you collect 50k samples per actor 
     eval_duration=30
     num_actors=1
     memory_size=$((max_steps*num_actors))
