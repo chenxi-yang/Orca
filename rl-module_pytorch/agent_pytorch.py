@@ -124,7 +124,7 @@ class Agent():
         self.device = device    
 
         self.tau = tau
-        self.train_dir = './train_dir'
+        self.train_dir = './pytorch_train_dir'
 
         self.step_epochs = 0
         # TODO, recheck the usage of the global steps
