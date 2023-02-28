@@ -169,14 +169,14 @@ class Agent():
             self.actor_noise = OU_Noise(mu=np.zeros(a_dim), sigma=float(self.stddev) * np.ones(a_dim), dt=0.5)
 
         # Main Actor/Critic Network
-        self.actor = ActorNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape, h2_shape=self.h2_shape)
-        self.critic = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape, h2_shape=self.h2_shape)
-        self.critic2 = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape, h2_shape=self.h2_shape)
+        self.actor = ActorNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape, h2_shape=self.h2_shape).to(self.device)
+        self.critic = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape, h2_shape=self.h2_shape).to(self.device)
+        self.critic2 = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape, h2_shape=self.h2_shape).to(self.device)
 
         # Target Actor/Critic network
-        self.target_actor = ActorNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape,h2_shape=self.h2_shape)
-        self.target_critic = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale ,h1_shape=self.h1_shape,h2_shape=self.h2_shape)
-        self.target_critic2 = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape,h2_shape=self.h2_shape)
+        self.target_actor = ActorNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape,h2_shape=self.h2_shape).to(self.device)
+        self.target_critic = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale ,h1_shape=self.h1_shape,h2_shape=self.h2_shape).to(self.device)
+        self.target_critic2 = CriticNetwork(self.s_dim, self.a_dim, action_scale=action_scale, h1_shape=self.h1_shape,h2_shape=self.h2_shape).to(self.device)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=self.lr_a)
         self.critic_optim = Adam(self.critic.parameters(), lr=self.lr_c)

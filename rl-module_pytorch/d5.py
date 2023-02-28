@@ -47,8 +47,6 @@ def create_input_op_shape(obs, tensor):
 
 
 def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter):
-
-
     score_list = []
 
     eval_times = 1
@@ -108,7 +106,6 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
             a = a1
             if params.dict['recurrent']:
                 s0_rec_buffer = s1_rec_buffer
-
 
             if step_counter == eval_length or terminal:
                 score_list.append(ep_r)
