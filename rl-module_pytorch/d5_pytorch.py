@@ -42,6 +42,8 @@ from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 # start with one actor version
 # have a signal file (know if all the actors are finished or not)
 
+CKPT_DIR = "./pytorch_train_dir"
+RP_DIR = "./rp_dir"
 
 # GLOBAL DATA DIRECTORY
 def create_input_op_shape(obs, tensor):
@@ -92,8 +94,7 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
                 env.write_action(a)
                 continue
 
-            ep_r = ep_r+r
-
+            ep_r = ep_r + r
 
             # TODO: add pytorch logger
             # if (step_counter+1) % params.dict['tb_interval'] == 0:
@@ -116,8 +117,24 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
     # summary = tf.summary.Summary()
     # summary.value.add(tag='Eval/Return', simple_value=np.mean(score_list))
     # summary_writer.add_summary(summary, epoch)
+    print(f"Eval/Return of actor {params.dict['task']}: {np.mean(score_list)}")
 
     return eval_step_counter
+
+
+def write_rp(f, fd): # actor writes one line of replay buffer to the file
+    for key, val in fd.items():
+        if isinstance(val, np.ndarray):
+            for i in range(len(val)):
+                if i == len(val) - 1:
+                    f.write(str(val[i]))
+                else:
+                    f.write(str(val[i]) + ",")
+        else:
+            f.write(str(val))
+        f.write(";")
+    f.write("\n")
+    f.flush()
 
 
 class learner_killer():
@@ -158,7 +175,6 @@ def main():
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
 
-
     ## parameters from parser
     global config
     global params
@@ -175,46 +191,6 @@ def main():
         is_learner = config.job_name == 'learner'
         def is_actor_fn(i): 
             return config.job_name == 'actor' and i == config.task
-
-    # # TODO: update the distributed training process 
-    # if params.dict['single_actor_eval']:
-    #     local_job_device = ''
-    #     shared_job_device = ''
-    #     def is_actor_fn(i): return True
-    #     global_variable_device = '/cpu'
-    #     is_learner = False
-    #     # TODO: distributed training
-    #     server = tf.train.Server.create_local_server()
-    #     filters = []
-    # else:
-
-    #     local_job_device = '/job:%s/task:%d' % (config.job_name, config.task)
-    #     shared_job_device = '/job:learner/task:0'
-
-    #     is_learner = config.job_name == 'learner'
-
-    #     global_variable_device = shared_job_device + '/cpu'
-
-    #     def is_actor_fn(i): 
-    #         return config.job_name == 'actor' and i == config.task
-
-    #     # TODO: server info
-    #     if params.dict['remote']:
-    #         cluster = tf.train.ClusterSpec({
-    #             'actor': params.dict['actor_ip'][:params.dict['num_actors']],
-    #             'learner': [params.dict['learner_ip']]
-    #         })
-    #     else:
-    #         cluster = tf.train.ClusterSpec({
-    #                 'actor': ['localhost:%d' % (8001 + i) for i in range(params.dict['num_actors'])],
-    #                 'learner': ['localhost:8000']
-    #             })
-
-    #     # TODO: train on server clusters
-    #     server = tf.train.Server(cluster, job_name=config.job_name,
-    #                             task_index=config.task)
-    #     filters = [shared_job_device, local_job_device]
-
 
     # set up the TCP usage
     if params.dict['use_TCP']:
@@ -244,7 +220,7 @@ def main():
     pytorchevent_dir = os.path.join(config.base_path, params.dict['pytorch_logdir'], config.job_name+str(config.task) )
     params.dict['train_dir'] = pytorchevent_dir
 
-    # TODO: tf logger
+    #TODO: pytorch logger
     if not os.path.exists(pytorchevent_dir):
         os.makedirs(pytorchevent_dir)
         
@@ -274,12 +250,6 @@ def main():
             else:
                 env = GYM_Env_Wrapper(env_str, params)
 
-    # if is_learner:
-    #     Dequeue_Length = params.dict['dequeue_length']
-    #     dequeue = queue.dequeue_many(Dequeue_Length)
-
-    # queuesize_op = queue.size()
-
     if params.dict['ckptdir'] is not None:
         params.dict['ckptdir'] = os.path.join(config.base_path, params.dict['ckptdir'])
         print("## checkpoint dir:", params.dict['ckptdir'])
@@ -290,31 +260,12 @@ def main():
     else:
         params.dict['ckptdir'] = pytorchevent_dir
 
-    # # TODO: tf, set up session
-    # if params.dict['single_actor_eval']:
-    #     mon_sess = tf.train.SingularMonitoredSession(
-    #         checkpoint_dir=params.dict['ckptdir'])
-    # else:
-    #     # TODO: pytorch distributed training
-    #     mon_sess = tf.train.MonitoredTrainingSession(master=server.target,
-    #             save_checkpoint_secs=15,
-    #             save_summaries_secs=None,
-    #             save_summaries_steps=None,
-    #             is_chief=is_learner, # the learner is the chief
-    #             checkpoint_dir=params.dict['ckptdir'],
-    #             config=tfconfig, # TODO: tf link, e.g. localhost:2222
-    #             hooks=None)
-
-    # # TODO: assign session to agent
-    # agent.assign_sess(mon_sess)
-
     # start the learner
     # each learner, periodically read all the files in the directory (when all the actor finishes)
     # first, store learner's NN data
     # and assign the parameters to the actor
     # have a signal file (know if all the actors are finished or not)
     if is_learner: # is learner
-
         if config.eval is True:
             print("=========================Learner is up===================")
             # TODO: pytorch, no kill signal
@@ -331,124 +282,161 @@ def main():
         # save model (the randomly initialized model)
         agent.save_model()
 
+        signal_file_path_lists = [os.path.join(CKPT_DIR, "signal_file_" + str(i) + ".txt") for i in range(params.dict['num_actors'])]
+        actor_rp_file_path_lists = [os.path.join(RP_DIR, "actor_rp_file_" + str(i) + ".txt") for i in range(params.dict['num_actors'])]
+
         while counter < params.dict['max_epochs']: # 1m epochs
             # check the signal file
             # if all the actors are finished, then read all the files
-            all_actor_finishes = False
             while True:
-                # check the signal file
-                all_actor_finishes = True
-                if all_actor_finishes:
+                #read the signal file
+                finish_counter = 0
+                for signal_file_path in signal_file_path_lists:
+                    f_actor_signal = open(signal_file_path, 'r')
+                    finish_counter += int(f_actor_signal.read())
+                    f_actor_signal.close() 
+                if finish_counter == params.dict['num_actors']: # all the actors are finished
                     break
 
-            #TODO: read all the files
-            data = read_from_all_files(params.dict['train_dir'], params.dict['num_actors'])
-            update_agent()
-            data_length = len(data[0])
-            agent.store_many_experience(data[0], data[1], data[2], data[3], data[4], data_length)
+            # read all the rp files
+            for actor_rp_file_path in actor_rp_file_path_lists:
+                f_actor_rp = open(actor_rp_file_path, 'r')
+                data = []
+                for line in f_actor_rp:
+                    read_data = line[:-1].split(";")
+                    for idx, val in enumerate(read_data):
+                        if idx == 2: # reward
+                            data.append(np.array([float(val)]))
+                        elif ',' not in val:
+                            data.append(float(val))
+                        else:
+                            tmp_val = np.array([float(i) for i in val.split(",")])
+                            data.append(tmp_val.astype(np.float))
+                    agent.store_experience(data[0], data[1], data[2], data[3], data[4])
 
+            # finish reading data from rp
+            # update a signal file (learner_finish_reading_rp)
             agent.train_step()
             if params.dict['use_hard_target'] == False:
                 agent.target_update()
             else:
                 if counter % params.dict['hard_target'] == 0 :
                     agent.target_update() # hard target update
-
+            print(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}")
             counter += 1
 
-            # TODO: 
             agent.save_model()
+            # clean up the rp file
+            # clean up the signal file
+            for actor_rp_file_path in actor_rp_file_path_lists:
+                f_actor_rp = open(actor_rp_file_path, 'w')
+                f_actor_rp.close()
+            for signal_file_path in signal_file_path_lists:
+                f_actor_signal = open(signal_file_path, 'w')
+                f_actor_signal.close()
 
     else: # is normal actor
         # load NN from learner's file
-# constantly write the replay buffer to the directory
-# start with one actor version
-# store a signal to a signal file (know if all the actors are finished or not) with the actor idx
-            start = time.time()
-            step_counter = np.int64(0)
-            eval_step_counter = np.int64(0)
-            s0 = env.reset()
-            s0_rec_buffer = np.zeros([s_dim])
-            s1_rec_buffer = np.zeros([s_dim])
-            s0_rec_buffer[-1*params.dict['state_dim']:] = s0
+        # constantly write the replay buffer to the directory
+        # start with one actor version
+        # store a signal to a signal file (know if all the actors are finished or not) with the actor idx
+        signal_file_path = os.path.join(CKPT_DIR, "signal_file_" + str(config.task) + ".txt")
+        actor_rp_file_path = os.path.join(RP_DIR, "actor_rp_file_" + str(config.task) + ".txt")
+        ckpt_path = os.path.join(CKPT_DIR, "model")
+
+        while True:
+            # if cp file exists and (actor_rp_file not exists or actor_rp_file is empty) ==> learner is done reading the replay buffer
+            # break
+            if os.exists(ckpt_path) and (not os.exists(actor_rp_file_path) or os.stat(actor_rp_file_path).st_size == 0):
+                break
+        
+        # load actor's NN from the cp file
+        agent.load_model(ckpt_path, evaluate=True)
+        actor_rp_f = open(actor_rp_file_path, 'w')
+        signal_f = open(signal_file_path, 'w')
+
+        start = time.time()
+        step_counter = np.int64(0)
+        eval_step_counter = np.int64(0)
+        s0 = env.reset()
+        s0_rec_buffer = np.zeros([s_dim])
+        s1_rec_buffer = np.zeros([s_dim])
+        s0_rec_buffer[-1*params.dict['state_dim']:] = s0
 
 
-            if params.dict['recurrent']:
-                a = agent.get_action(s0_rec_buffer,not config.eval)
+        if params.dict['recurrent']:
+            a = agent.get_action(s0_rec_buffer, not config.eval)
+        else:
+            a = agent.get_action(s0, not config.eval)
+        a = a[0][0]
+        env.write_action(a)
+        epoch = 0
+        ep_r = 0.0
+        start = time.time()
+
+        # the mahimahi script sets the max steps to 50000
+        # I could manually add this for better readability
+        while epoch < params.dict['actor_max_epochs']:
+            epoch += 1
+
+            step_counter += 1
+            s1, r, terminal, error_code = env.step(a, eval_=config.eval)
+
+            if error_code == True:
+                s1_rec_buffer = np.concatenate( (s0_rec_buffer[params.dict['state_dim']:], s1) )
+
+                if params.dict['recurrent']:
+                    a1 = agent.get_action(s1_rec_buffer, not config.eval)
+                else:
+                    a1 = agent.get_action(s1,not config.eval)
+
+                a1 = a1[0][0]
+                env.write_action(a1)
             else:
-                a = agent.get_action(s0, not config.eval)
-            a = a[0][0]
-            env.write_action(a)
-            epoch = 0
-            ep_r = 0.0
-            start = time.time()
-            while True:
-                start = time.time()
-                epoch += 1
+                print("TaskID:"+str(config.task)+"Invalid state received...\n")
+                env.write_action(a)
+                continue
+            
+            if params.dict['recurrent']:
+                fd = {
+                    's0': s0_rec_buffer,
+                    'a': a,
+                    'r': np.array([r]),
+                    's1': s1_rec_buffer,
+                    'terminal': np.array([terminal], np.float)
+                }
+            else:
+                fd = {
+                    's0': s0,
+                    'a': a,
+                    'r': np.array([r]),
+                    's1': s1,
+                    'terminal': np.array([terminal], np.float)
+                }
 
-                step_counter += 1
-                s1, r, terminal, error_code = env.step(a,eval_=config.eval)
+            if not config.eval:
+                write_rp(actor_rp_f, fd)
 
-                if error_code == True:
-                    s1_rec_buffer = np.concatenate( (s0_rec_buffer[params.dict['state_dim']:], s1) )
+            s0 = s1
+            a = a1
+            if params.dict['recurrent']:
+                s0_rec_buffer = s1_rec_buffer
 
-                    if params.dict['recurrent']:
-                        a1 = agent.get_action(s1_rec_buffer, not config.eval)
-                    else:
-                        a1 = agent.get_action(s1,not config.eval)
+            if not params.dict['use_TCP'] and (terminal):
+                if agent.actor_noise != None:
+                    agent.actor_noise.reset()
 
-                    a1 = a1[0][0]
+            if (epoch% params.dict['eval_frequency'] == 0):
+                # update the log part (for now, print the score)
+                eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter)
 
+        print(f"total time for actor-{config.task}: {time.time() - start}")
+        # write to signal file
 
-                    env.write_action(a1)
-
-                else:
-                    print("TaskID:"+str(config.task)+"Invalid state received...\n")
-                    env.write_action(a)
-                    continue
-
-                if params.dict['recurrent']:
-                    fd = {a_s0:s0_rec_buffer, a_action:a, a_reward:np.array([r]), a_s1:s1_rec_buffer, a_terminal:np.array([terminal], np.float)}
-                else:
-                    fd = {a_s0:s0, a_action:a, a_reward:np.array([r]), a_s1:s1, a_terminal:np.array([terminal], np.float)}
-
-                if not config.eval:
-                    # TODO: update the running part
-                    # distribute over actors
-                    mon_sess.run(actor_op, feed_dict=fd)
-
-                s0 = s1
-                a = a1
-                if params.dict['recurrent']:
-                    s0_rec_buffer = s1_rec_buffer
-
-                if not params.dict['use_TCP'] and (terminal):
-                    if agent.actor_noise != None:
-                        agent.actor_noise.reset()
-
-                if (epoch% params.dict['eval_frequency'] == 0):
-                    eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter)
-
-            print("total time:", time.time()-start)
-
-# def learner_dequeue_thread(agent, params, mon_sess, dequeue, queuesize_op, Dequeue_Length):
-#     ct = 0
-#     while True:
-#         ct = ct + 1
-#         # TODO: what is mon_sess's input, how did it change the queue?
-#         data = mon_sess.run(dequeue)
-#         agent.store_many_experience(data[0], data[1], data[2], data[3], data[4], Dequeue_Length)
-#         time.sleep(0.01)
-
-# what does this for???
-# def learner_update_thread(agent,params):
-#     delay=params.dict['update_delay']/1000.0
-#     ct = 0
-#     while True:
-#         agent.train_step()
-#         agent.target_update()
-#         time.sleep(delay)
-
+        actor_rp_f.close()
+        signal_f.write(f"1") # represents that the actor is done
+        signal_f.close()
+        
 
 if __name__ == "__main__":
     main()
