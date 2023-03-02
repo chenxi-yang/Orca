@@ -171,6 +171,8 @@ def main():
     parser.add_argument('--base_path',type=str, required=True)
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--task', type=int, required=True, help='Task id')
+    parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
+    parser.add_argument('--actor_max_epochs', type=int, default = 50000) # per actor # epoch
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -181,7 +183,7 @@ def main():
     config = parser.parse_args()
 
     ## parameters from file
-    params = Params(os.path.join(config.base_path,'params.json'))
+    params = Params(os.path.join(config.base_path, 'params.json'))
 
     if params.dict['single_actor_eval']: # evaluate the single actor
         def is_actor_fn(i): 
@@ -217,7 +219,7 @@ def main():
     random.seed(1234)
     np.random.seed(1234)
 
-    pytorchevent_dir = os.path.join(config.base_path, params.dict['pytorch_logdir'], config.job_name+str(config.task) )
+    pytorchevent_dir = os.path.join(config.base_path, config.pytorch_logdir, config.job_name+str(config.task) )
     params.dict['train_dir'] = pytorchevent_dir
 
     #TODO: pytorch logger
@@ -376,7 +378,7 @@ def main():
 
         # the mahimahi script sets the max steps to 50000
         # I could manually add this for better readability
-        while epoch < params.dict['actor_max_epochs']:
+        while epoch < config.actor_max_epochs:
             epoch += 1
 
             step_counter += 1
