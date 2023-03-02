@@ -35,7 +35,7 @@
 int main(int argc, char **argv)
 {
     DBGPRINT(DBGSERVER,4,"Main\n");
-    if(argc!=14)
+    if(argc!=15)
 	{
         DBGERROR("argc:%d\n",argc);
         for(int i=0;i<argc;i++)
@@ -68,6 +68,7 @@ int main(int argc, char **argv)
     duration=atoi(argv[11]);
     qsize=atoi(argv[12]);
     duration_steps=atoi(argv[13]);
+    training_session=atoi(argv[14]);
 
     start_server(flow_num, client_port);
 	DBGMARK(DBGSERVER,5,"DONE!\n");
@@ -189,16 +190,16 @@ void start_server(int flow_num, int client_port)
         return;
     } 
     if (first_time==1){
-        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s --mem_r=%d --mem_w=%d &",path,path,actor_id,path,(int)key,(int)key_rl);
+        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
         DBGPRINT(0,0,"Starting RL Module (Without load) ...\n%s",cmd);
     }
     else if (first_time==2 || first_time==4){
-        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --tb_interval=1 --base_path=%s --load --eval --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d &",path,path,actor_id,path,(int)key,(int)key_rl);
+        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --tb_interval=1 --base_path=%s --load --eval --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
         DBGPRINT(0,0,"Starting RL Module (No learning) ...\n%s",cmd);
     }
     else
     {
-        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --load --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d &",path,path,actor_id,path,(int)key,(int)key_rl);
+        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --load --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
         DBGPRINT(0,0,"Starting RL Module (With load) ...\n%s",cmd);
     }
  

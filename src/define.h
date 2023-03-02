@@ -96,6 +96,7 @@ int target_ratio=150;
 u32 target=50; //50ms
 u32 report_period=5;//5s
 double mm_loss_rate=0;
+int training_session=0;
 
 #define FLOW_NUM 1
 int sock[FLOW_NUM];
