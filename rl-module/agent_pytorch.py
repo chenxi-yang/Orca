@@ -44,10 +44,11 @@ def create_input_op_shape(obs, tensor):
 
 # build the actor network
 class ActorNetwork(nn.Module):
-    def __init__(self, s_sim, h1_shape, h2_shape, action_scale=1.0):
+    def __init__(self, s_dim, a_dim, h1_shape, h2_shape, action_scale=1.0):
         super(ActorNetwork, self).__init__()
         self.action_scale = action_scale
-        self.s_dim = s_sim
+        self.s_dim = s_dim
+        self.a_dim = a_dim
         self.h1_shape = h1_shape
         self.h2_shape = h2_shape
 
@@ -65,6 +66,7 @@ class ActorNetwork(nn.Module):
 
     # TODO: did not assign names to the layers, e.g. fc1, fc2, fc3
     def forward(self, s):
+        s = s.unsqueeze(0)
         h1 = self.fc1(s)
         h1 = self.bn1(h1)
         h1 = self.leakyrelu1(h1)
@@ -75,7 +77,7 @@ class ActorNetwork(nn.Module):
 
         output = self.fc3(h2)
         scale_output = torch.tanh(output) * self.action_scale
-
+        
         return scale_output
 
 
@@ -124,7 +126,7 @@ class Agent():
         self.device = device    
 
         self.tau = tau
-        self.train_dir = './pytorch_train_dir'
+        self.train_dir = './rl-module/pytorch_train_dir/trained_model'
 
         self.step_epochs = 0
         # TODO, recheck the usage of the global steps
@@ -291,12 +293,13 @@ class Agent():
     def get_action(self, s, use_noise=True):
         with torch.no_grad(): # is_training=False
             s0 = torch.FloatTensor(s).to(self.device)
+            # print(f"s0 shape: {s0.shape}")
             action = self.actor(s0)
             if use_noise:
                 action = action.cpu().numpy()
                 noise = self.actor_noise(action)
                 action += noise
-                action = np.clamp(action, self.action_range[0], self.action_range[1])
+                action = np.clip(action, self.action_range[0], self.action_range[1])
             return action
 
     # TODO: NOT USE?
@@ -371,10 +374,8 @@ class Agent():
     #     summary.value.add(tag= tag, simple_value=val)
     #     self.summary_writer.add_summary(summary, step_counter)
 
-    # TODO: save models
     def save_model(self, step=None):
-        # TODO: update global step, torch distributed logger
-        ckpt_path = os.path.join(self.train_dir, 'model')
+        ckpt_path = f"{self.train_dir}/model.pth"
         print("Saving models to {}".format(ckpt_path))
         torch.save(
             {
@@ -384,13 +385,12 @@ class Agent():
                 "target_actor_state_dict": self.target_actor.state_dict(),
                 "target_critic_state_dict": self.target_critic.state_dict(),
                 "target_critic2_state_dict": self.target_critic2.state_dict(),
-                "actor_optimizer_state_dict": self.actor_optimizer.state_dict(),
-                "critic_optimizer_state_dict": self.critic_optimizer.state_dict(),
-                "critic2_optimizer_state_dict": self.critic2_optimizer.state_dict(),
+                "actor_optimizer_state_dict": self.actor_optim.state_dict(),
+                "critic_optimizer_state_dict": self.critic_optim.state_dict(),
+                "critic2_optimizer_state_dict": self.critic2_optim.state_dict(),
             },
             ckpt_path,
         )
-        # self.saver.save(self.sess, os.path.join(self.train_dir, 'model'), global_step =step)
 
     def load_model(self, ckpt_path, evaluate=False):
         print("Loading models from {}".format(ckpt_path))
@@ -402,8 +402,9 @@ class Agent():
             self.target_actor.load_state_dict(checkpoint["target_actor_state_dict"])
             self.target_critic.load_state_dict(checkpoint["target_critic_state_dict"])
             self.target_critic2.load_state_dict(checkpoint["target_critic2_state_dict"])
-            self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
-            self.critic_optimizer.load_state_dict(checkpoint["critic_optimizer_state_dict"])
+            self.actor_optim.load_state_dict(checkpoint["actor_optimizer_state_dict"])
+            self.critic_optim.load_state_dict(checkpoint["critic_optimizer_state_dict"])
+            self.critic2_optim.load_state_dict(checkpoint["critic2_optimizer_state_dict"])
         if evaluate:
             self.actor.eval()
             self.critic.eval()
