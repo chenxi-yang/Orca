@@ -123,20 +123,21 @@ def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffe
 
 
 def write_rp(f, fd_list): # actor writes one line of replay buffer to the file
-    for fd in fd_list:
-        for key, val in fd.items():
-            if isinstance(val, np.ndarray):
-                for i in range(len(val)):
-                    if i == len(val) - 1:
-                        f.write(str(val[i]))
-                    else:
-                        f.write(str(val[i]) + ",")
-            else:
-                f.write(str(val))
-            f.write(";")
-        f.write("\n")
-        # f.flush()
-    f.flush()
+    pickle.dump(fd_list, f)
+    # for fd in fd_list:
+    #     for key, val in fd.items():
+    #         if isinstance(val, np.ndarray):
+    #             for i in range(len(val)):
+    #                 if i == len(val) - 1:
+    #                     f.write(str(val[i]))
+    #                 else:
+    #                     f.write(str(val[i]) + ",")
+    #         else:
+    #             f.write(str(val))
+    #         f.write(";")
+    #     f.write("\n")
+    #     # f.flush()
+    # f.flush()
 
 
 class learner_killer():
@@ -174,7 +175,7 @@ def main():
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--task', type=int, required=True, help='Task id')
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
-    parser.add_argument('--actor_max_epochs', type=int, default = 500) # per actor # epoch #TODO: should be 50k use 500 for now
+    parser.add_argument('--actor_max_epochs', type=int, default = 5) # per actor # epoch #TODO: should be 50k use 500 for now
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -288,6 +289,12 @@ def main():
 
         signal_file_path_lists = [os.path.join(CKPT_DIR, "signal_file_" + str(i) + ".txt") for i in range(params.dict['num_actors'])]
         actor_rp_file_path_lists = [os.path.join(RP_DIR, "actor_rp_file_" + str(i) + ".txt") for i in range(params.dict['num_actors'])]
+        
+        # initialize the signal file
+        for signal_file_path in signal_file_path_lists:
+            with open(signal_file_path, 'w') as f_actor_signal:
+                pass
+            f_actor_signal.close()
 
         while counter < params.dict['max_epochs']: # 1m epochs
             # check the signal file
@@ -300,31 +307,34 @@ def main():
                     if os.path.exists(signal_file_path) is False:
                         break
                     f_actor_signal = open(signal_file_path, 'r')
-                    if f_actor_signal.read() == '':
+                    tmp_signal = f_actor_signal.read()
+                    if tmp_signal == '1':
+                        finish_counter += 1
+                    else:
                         break
-                    tmp_signal = int(f_actor_signal.read())
-                    if tmp_signal == 0:
-                        break
-                    finish_counter += tmp_signal
                     f_actor_signal.close() 
                 if finish_counter == params.dict['num_actors']: # all the actors are finished
                     break
 
             # read all the rp files
             for actor_rp_file_path in actor_rp_file_path_lists:
-                f_actor_rp = open(actor_rp_file_path, 'r')
-                data = []
-                for line in f_actor_rp:
-                    read_data = line[:-1].split(";")
-                    for idx, val in enumerate(read_data):
-                        if idx == 2: # reward
-                            data.append(np.array([float(val)]))
-                        elif ',' not in val:
-                            data.append(float(val))
-                        else:
-                            tmp_val = np.array([float(i) for i in val.split(",")])
-                            data.append(tmp_val.astype(np.float))
+                print(f"Loading buffer from {actor_rp_file_path}")
+                f_actor_rp = open(actor_rp_file_path, 'rb') # read binary
+                buffer_data = pickle.load(f_actor_rp)
+                for data in buffer_data:
                     agent.store_experience(data[0], data[1], data[2], data[3], data[4])
+                
+                # for line in f_actor_rp:
+                #     read_data = line[:-1].split(";")
+                #     for idx, val in enumerate(read_data):
+                #         if idx == 2: # reward
+                #             data.append(np.array([float(val)]))
+                #         elif ',' not in val:
+                #             data.append(float(val))
+                #         else:
+                #             tmp_val = np.array([float(i) for i in val.split(",")])
+                #             data.append(tmp_val.astype(np.float))
+                #     agent.store_experience(data[0], data[1], data[2], data[3], data[4])
 
             # finish reading data from rp
             # update a signal file (learner_finish_reading_rp)
@@ -377,7 +387,7 @@ def main():
         print(f"=========================Actor starts rollout===================")
         # load actor's NN from the cp file
         agent.load_model(ckpt_path, evaluate=True)
-        actor_rp_f = open(actor_rp_file_path, 'w')
+        actor_rp_f = open(actor_rp_file_path, 'wb') # write binary
         signal_f = open(signal_file_path, 'w')
 
         start = time.time()
@@ -424,21 +434,23 @@ def main():
                 continue
             
             if params.dict['recurrent']:
-                fd = {
-                    's0': s0_rec_buffer,
-                    'a': a,
-                    'r': np.array([r]),
-                    's1': s1_rec_buffer,
-                    'terminal': np.array([terminal], np.float)
-                }
+                # fd = {
+                #     's0': s0_rec_buffer,
+                #     'a': a,
+                #     'r': np.array([r]),
+                #     's1': s1_rec_buffer,
+                #     'terminal': np.array([terminal], np.float)
+                # }
+                fd = (s0_rec_buffer, a, np.array([r]), s1_rec_buffer, np.array([terminal], np.float))
             else:
-                fd = {
-                    's0': s0,
-                    'a': a,
-                    'r': np.array([r]),
-                    's1': s1,
-                    'terminal': np.array([terminal], np.float)
-                }
+                # fd = {
+                #     's0': s0,
+                #     'a': a,
+                #     'r': np.array([r]),
+                #     's1': s1,
+                #     'terminal': np.array([terminal], np.float)
+                # }
+                fd = (s0, a, np.array([r]), s1, np.array([terminal], np.float))
 
             if not config.eval:
                 fd_list.append(fd)
@@ -457,8 +469,9 @@ def main():
                 # update the log part (for now, print the score)
                 eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter)
 
+            # TODO: when the epoch is enlarged
             # if epoch % 500 == 0:
-            print(f"epoch {epoch} for actor{config.task} finished.")
+            # print(f"epoch {epoch} for actor{config.task} finished.")
             
         write_rp(actor_rp_f, fd_list)
         print(f"total time for actor-{config.task}: {time.time() - start}")
