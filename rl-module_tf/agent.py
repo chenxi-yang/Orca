@@ -385,8 +385,6 @@ class Agent():
             new_priorities = np.abs(np.squeeze(td_errors)) + 1e-6
             self.rp_buffer.update_priorities(idxes, new_priorities)
 
-
-
     def log_tf(self, val, tag=None, step_counter=0):
         summary = tf.Summary()
         summary.value.add(tag= tag, simple_value=val)

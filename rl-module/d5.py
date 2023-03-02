@@ -42,7 +42,7 @@ from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 # start with one actor version
 # have a signal file (know if all the actors are finished or not)
 
-CKPT_DIR = "./rl-module/pytorch_train_dir"
+CKPT_DIR = f"./rl-module/pytorch_train_dir"
 RP_DIR = "./rl-module/rp_dir"
 
 # GLOBAL DATA DIRECTORY
@@ -50,7 +50,7 @@ def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]
     return np.reshape(obs, input_shape)
 
-def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter):
+def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file):
     score_list = []
 
     eval_times = 1
@@ -117,7 +117,8 @@ def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffe
     # summary = tf.summary.Summary()
     # summary.value.add(tag='Eval/Return', simple_value=np.mean(score_list))
     # summary_writer.add_summary(summary, epoch)
-    print(f"Eval/Return of actor {config.task}: {np.mean(score_list)}")
+    print(f"Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}")
+    f_log_file.write(f"Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}\n")
 
     return eval_step_counter
 
@@ -175,7 +176,8 @@ def main():
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--task', type=int, required=True, help='Task id')
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
-    parser.add_argument('--actor_max_epochs', type=int, default = 5) # per actor # epoch #TODO: should be 50k use 500 for now
+    parser.add_argument('--actor_max_epochs', type=int, default = 500) # per actor # epoch #TODO: should be 50k use 500 for now
+    parser.add_argument('--num_ac_updates_per_step', type=int, default = 1) # per actor # step, Orca's default is 1
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -235,15 +237,21 @@ def main():
                     h2_shape=params.dict['h2_shape'],stddev=params.dict['stddev'],mem_size=params.dict['memsize'],gamma=params.dict['gamma'],
                     lr_c=params.dict['lr_c'],lr_a=params.dict['lr_a'],tau=params.dict['tau'],PER=params.dict['PER'],CDQ=params.dict['CDQ'],
                     LOSS_TYPE=params.dict['LOSS_TYPE'],noise_type=params.dict['noise_type'],
-                    noise_exp=params.dict['noise_exp']) # device='cpu'
+                    noise_exp=params.dict['noise_exp'], train_dir=CKPT_DIR) # device='cpu'
 
     if is_learner:
+        log_file_path = f"{CKPT_DIR}/learner_training_log.txt"
+        f_log_file = open(log_file_path, "w")
+        
         if config.load is True and config.eval==False:
             if os.path.isfile(os.path.join(params.dict['train_dir'], "replay_memory.pkl")):
                 with open(os.path.join(params.dict['train_dir'], "replay_memory.pkl"), 'rb') as fp:
                     replay_memory = pickle.load(fp)
 
         _killsignal = learner_killer(agent.rp_buffer)
+    else:
+        log_file_path = f"{CKPT_DIR}/actor{config.task}_training_log.txt"
+        f_log_file = open(log_file_path, "w")
 
     # initialize the environment for each actor
     for i in range(params.dict['num_actors']):
@@ -318,7 +326,7 @@ def main():
 
             # read all the rp files
             for actor_rp_file_path in actor_rp_file_path_lists:
-                print(f"Loading buffer from {actor_rp_file_path}")
+                # print(f"Loading buffer from {actor_rp_file_path}")
                 f_actor_rp = open(actor_rp_file_path, 'rb') # read binary
                 buffer_data = pickle.load(f_actor_rp)
                 for data in buffer_data:
@@ -338,13 +346,17 @@ def main():
 
             # finish reading data from rp
             # update a signal file (learner_finish_reading_rp)
-            agent.train_step()
-            if params.dict['use_hard_target'] == False:
-                agent.target_update()
-            else:
-                if counter % params.dict['hard_target'] == 0 :
-                    agent.target_update() # hard target update
+            for _ in range(config.num_ac_updates_per_step):
+                agent.train_step()
+                if params.dict['use_hard_target'] == False:
+                    agent.target_update()
+                else:
+                    if counter % params.dict['hard_target'] == 0 :
+                        agent.target_update() # hard target update
             print(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}, time: {time.time() - epoch_start_time}")
+            f_log_file.write(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}, time: {time.time() - epoch_start_time}\n")
+            f_log_file.flush()
+            
             counter += 1
 
             agent.save_model()
@@ -372,114 +384,118 @@ def main():
         # print(f"ckpt path: {ckpt_path}")
         print(f"ckpt exists: {os.path.exists(ckpt_path)}")
         print(f"rp exists: {os.path.exists(actor_rp_file_path)}")
-
         while True:
-            # if cp file exists and (actor_rp_file not exists or actor_rp_file is empty) ==> learner is done reading the replay buffer
-            # break
-            if os.path.exists(ckpt_path):
-                if not os.path.exists(actor_rp_file_path):
-                    break
-                f_signal_f = open(signal_file_path, 'r')
-                if f_signal_f.read() == '':
-                    f_signal_f.close()
-                    break
-        
-        print(f"=========================Actor starts rollout===================")
-        # load actor's NN from the cp file
-        agent.load_model(ckpt_path, evaluate=True)
-        actor_rp_f = open(actor_rp_file_path, 'wb') # write binary
-        signal_f = open(signal_file_path, 'w')
+            while True:
+                # if cp file exists and (actor_rp_file not exists or actor_rp_file is empty) ==> learner is done reading the replay buffer
+                # break
+                if os.path.exists(ckpt_path):
+                    if not os.path.exists(actor_rp_file_path):
+                        break
+                    f_signal_f = open(signal_file_path, 'r')
+                    if f_signal_f.read() == '':
+                        f_signal_f.close()
+                        break
+            
+            print(f"=========================Actor starts rollout===================")
+            # load actor's NN from the cp file
+            agent.load_model(ckpt_path, evaluate=True)
+            actor_rp_f = open(actor_rp_file_path, 'wb') # write binary
+            signal_f = open(signal_file_path, 'w')
 
-        start = time.time()
-        step_counter = np.int64(0)
-        eval_step_counter = np.int64(0)
-        s0 = env.reset()
-        s0_rec_buffer = np.zeros([s_dim])
-        s1_rec_buffer = np.zeros([s_dim])
-        s0_rec_buffer[-1*params.dict['state_dim']:] = s0
+            start = time.time()
+            step_counter = np.int64(0)
+            eval_step_counter = np.int64(0)
+            s0 = env.reset()
+            s0_rec_buffer = np.zeros([s_dim])
+            s1_rec_buffer = np.zeros([s_dim])
+            s0_rec_buffer[-1*params.dict['state_dim']:] = s0
 
-        # print(f"s_dim: {s_dim}")
+            # print(f"s_dim: {s_dim}")
 
-        if params.dict['recurrent']:
-            a = agent.get_action(s0_rec_buffer, not config.eval)
-        else:
-            a = agent.get_action(s0, not config.eval)
-        a = a[0][0]
-        env.write_action(a)
-        epoch = 0
-        ep_r = 0.0
+            if params.dict['recurrent']:
+                a = agent.get_action(s0_rec_buffer, not config.eval)
+            else:
+                a = agent.get_action(s0, not config.eval)
+            a = a[0][0]
+            env.write_action(a)
+            epoch = 0
+            ep_r = 0.0
 
-        # the mahimahi script sets the max steps to 50000
-        # I could manually add this for better readability
-        fd_list = []
-        while epoch < config.actor_max_epochs:
-            epoch += 1
+            # the mahimahi script sets the max steps to 50000
+            # I could manually add this for better readability
+            fd_list = []
+            while epoch < config.actor_max_epochs:
+                epoch += 1
 
-            step_counter += 1
-            s1, r, terminal, error_code = env.step(a, eval_=config.eval)
+                step_counter += 1
+                s1, r, terminal, error_code = env.step(a, eval_=config.eval)
 
-            if error_code == True:
-                s1_rec_buffer = np.concatenate( (s0_rec_buffer[params.dict['state_dim']:], s1) )
+                if error_code == True:
+                    s1_rec_buffer = np.concatenate( (s0_rec_buffer[params.dict['state_dim']:], s1) )
 
-                if params.dict['recurrent']:
-                    a1 = agent.get_action(s1_rec_buffer, not config.eval)
+                    if params.dict['recurrent']:
+                        a1 = agent.get_action(s1_rec_buffer, not config.eval)
+                    else:
+                        a1 = agent.get_action(s1,not config.eval)
+
+                    a1 = a1[0][0]
+                    env.write_action(a1)
                 else:
-                    a1 = agent.get_action(s1,not config.eval)
+                    print("TaskID:"+str(config.task)+"Invalid state received...\n")
+                    env.write_action(a)
+                    continue
+                
+                if params.dict['recurrent']:
+                    # fd = {
+                    #     's0': s0_rec_buffer,
+                    #     'a': a,
+                    #     'r': np.array([r]),
+                    #     's1': s1_rec_buffer,
+                    #     'terminal': np.array([terminal], np.float)
+                    # }
+                    fd = (s0_rec_buffer, a, np.array([r]), s1_rec_buffer, np.array([terminal], np.float))
+                else:
+                    # fd = {
+                    #     's0': s0,
+                    #     'a': a,
+                    #     'r': np.array([r]),
+                    #     's1': s1,
+                    #     'terminal': np.array([terminal], np.float)
+                    # }
+                    fd = (s0, a, np.array([r]), s1, np.array([terminal], np.float))
 
-                a1 = a1[0][0]
-                env.write_action(a1)
-            else:
-                print("TaskID:"+str(config.task)+"Invalid state received...\n")
-                env.write_action(a)
-                continue
-            
-            if params.dict['recurrent']:
-                # fd = {
-                #     's0': s0_rec_buffer,
-                #     'a': a,
-                #     'r': np.array([r]),
-                #     's1': s1_rec_buffer,
-                #     'terminal': np.array([terminal], np.float)
-                # }
-                fd = (s0_rec_buffer, a, np.array([r]), s1_rec_buffer, np.array([terminal], np.float))
-            else:
-                # fd = {
-                #     's0': s0,
-                #     'a': a,
-                #     'r': np.array([r]),
-                #     's1': s1,
-                #     'terminal': np.array([terminal], np.float)
-                # }
-                fd = (s0, a, np.array([r]), s1, np.array([terminal], np.float))
+                if not config.eval:
+                    fd_list.append(fd)
+                    # pass
 
-            if not config.eval:
-                fd_list.append(fd)
-                # pass
+                s0 = s1
+                a = a1
+                if params.dict['recurrent']:
+                    s0_rec_buffer = s1_rec_buffer
 
-            s0 = s1
-            a = a1
-            if params.dict['recurrent']:
-                s0_rec_buffer = s1_rec_buffer
+                if not params.dict['use_TCP'] and (terminal):
+                    if agent.actor_noise != None:
+                        agent.actor_noise.reset()
 
-            if not params.dict['use_TCP'] and (terminal):
-                if agent.actor_noise != None:
-                    agent.actor_noise.reset()
+                # if (epoch% params.dict['eval_frequency'] == 0):
+                if (epoch % 499 == 0):
+                    # update the log part (for now, print the score)
+                    eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
 
-            if (epoch% params.dict['eval_frequency'] == 0):
-                # update the log part (for now, print the score)
-                eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter)
+                # TODO: when the epoch is enlarged
+                # if epoch % 500 == 0:
+                # print(f"epoch {epoch} for actor{config.task} finished.")
+                
+            write_rp(actor_rp_f, fd_list)
+            print(f"total time for actor-{config.task}: {time.time() - start}")
+            f_log_file.write(f"total time for actor-{config.task}: {time.time() - start}\n")
+            f_log_file.flush()
+            # write to signal file
 
-            # TODO: when the epoch is enlarged
-            # if epoch % 500 == 0:
-            # print(f"epoch {epoch} for actor{config.task} finished.")
-            
-        write_rp(actor_rp_f, fd_list)
-        print(f"total time for actor-{config.task}: {time.time() - start}")
-        # write to signal file
-
-        actor_rp_f.close()
-        signal_f.write(f"1") # represents that the actor is done
-        signal_f.close()
+            actor_rp_f.close()
+            signal_f.write(f"1") # represents that the actor is done
+            signal_f.close()
+        
         
 
 if __name__ == "__main__":

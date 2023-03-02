@@ -113,7 +113,8 @@ class CriticNetwork(nn.Module):
 
 class Agent():
     def __init__(self, s_dim, a_dim, h1_shape, h2_shape, gamma=0.995, batch_size=8, lr_a=1e-4, lr_c=1e-3, tau=1e-3, mem_size=1e5, action_scale=1.0, action_range=(-1.0, 1.0),
-                noise_type=3, noise_exp=50000, summary=None,stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu'):
+                noise_type=3, noise_exp=50000, summary=None,stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu',
+                train_dir=None):
         self.PER = PER
         self.CDQ = CDQ # True by default
         self.LOSS_TYPE = LOSS_TYPE
@@ -127,7 +128,7 @@ class Agent():
         self.device = device    
 
         self.tau = tau
-        self.train_dir = './rl-module/pytorch_train_dir/trained_model'
+        self.train_dir = f"{train_dir}/trained_model" #'./rl-module/pytorch_train_dir/trained_model'
 
         self.step_epochs = 0
         # TODO, recheck the usage of the global steps
@@ -381,7 +382,7 @@ class Agent():
 
     def save_model(self, step=None):
         ckpt_path = f"{self.train_dir}/model.pth"
-        print("Saving models to {}".format(ckpt_path))
+        # print("Saving models to {}".format(ckpt_path))
         torch.save(
             {
                 "actor_state_dict": self.actor.state_dict(),
@@ -398,7 +399,7 @@ class Agent():
         )
 
     def load_model(self, ckpt_path, evaluate=False):
-        print("Loading models from {}".format(ckpt_path))
+        # print("Loading models from {}".format(ckpt_path))
         if ckpt_path is not None:
             checkpoint = torch.load(ckpt_path)
             self.actor.load_state_dict(checkpoint["actor_state_dict"])
