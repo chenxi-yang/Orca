@@ -42,15 +42,15 @@ from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 # start with one actor version
 # have a signal file (know if all the actors are finished or not)
 
-CKPT_DIR = "./pytorch_train_dir"
-RP_DIR = "./rp_dir"
+CKPT_DIR = "./rl-module/pytorch_train_dir"
+RP_DIR = "./rl-module/rp_dir"
 
 # GLOBAL DATA DIRECTORY
 def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]
     return np.reshape(obs, input_shape)
 
-def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter):
+def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter):
     score_list = []
 
     eval_times = 1
@@ -117,23 +117,25 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
     # summary = tf.summary.Summary()
     # summary.value.add(tag='Eval/Return', simple_value=np.mean(score_list))
     # summary_writer.add_summary(summary, epoch)
-    print(f"Eval/Return of actor {params.dict['task']}: {np.mean(score_list)}")
+    print(f"Eval/Return of actor {config.task}: {np.mean(score_list)}")
 
     return eval_step_counter
 
 
-def write_rp(f, fd): # actor writes one line of replay buffer to the file
-    for key, val in fd.items():
-        if isinstance(val, np.ndarray):
-            for i in range(len(val)):
-                if i == len(val) - 1:
-                    f.write(str(val[i]))
-                else:
-                    f.write(str(val[i]) + ",")
-        else:
-            f.write(str(val))
-        f.write(";")
-    f.write("\n")
+def write_rp(f, fd_list): # actor writes one line of replay buffer to the file
+    for fd in fd_list:
+        for key, val in fd.items():
+            if isinstance(val, np.ndarray):
+                for i in range(len(val)):
+                    if i == len(val) - 1:
+                        f.write(str(val[i]))
+                    else:
+                        f.write(str(val[i]) + ",")
+            else:
+                f.write(str(val))
+            f.write(";")
+        f.write("\n")
+        # f.flush()
     f.flush()
 
 
@@ -172,7 +174,7 @@ def main():
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--task', type=int, required=True, help='Task id')
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
-    parser.add_argument('--actor_max_epochs', type=int, default = 50000) # per actor # epoch
+    parser.add_argument('--actor_max_epochs', type=int, default = 500) # per actor # epoch #TODO: should be 50k use 500 for now
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -232,7 +234,7 @@ def main():
                     h2_shape=params.dict['h2_shape'],stddev=params.dict['stddev'],mem_size=params.dict['memsize'],gamma=params.dict['gamma'],
                     lr_c=params.dict['lr_c'],lr_a=params.dict['lr_a'],tau=params.dict['tau'],PER=params.dict['PER'],CDQ=params.dict['CDQ'],
                     LOSS_TYPE=params.dict['LOSS_TYPE'],noise_type=params.dict['noise_type'],
-                    noise_exp=params.dict['noise_exp'], device=params.dict['device'])
+                    noise_exp=params.dict['noise_exp']) # device='cpu'
 
     if is_learner:
         if config.load is True and config.eval==False:
@@ -290,12 +292,20 @@ def main():
         while counter < params.dict['max_epochs']: # 1m epochs
             # check the signal file
             # if all the actors are finished, then read all the files
+            epoch_start_time = time.time()
             while True:
                 #read the signal file
                 finish_counter = 0
                 for signal_file_path in signal_file_path_lists:
+                    if os.path.exists(signal_file_path) is False:
+                        break
                     f_actor_signal = open(signal_file_path, 'r')
-                    finish_counter += int(f_actor_signal.read())
+                    if f_actor_signal.read() == '':
+                        break
+                    tmp_signal = int(f_actor_signal.read())
+                    if tmp_signal == 0:
+                        break
+                    finish_counter += tmp_signal
                     f_actor_signal.close() 
                 if finish_counter == params.dict['num_actors']: # all the actors are finished
                     break
@@ -324,7 +334,7 @@ def main():
             else:
                 if counter % params.dict['hard_target'] == 0 :
                     agent.target_update() # hard target update
-            print(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}")
+            print(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}, time: {time.time() - epoch_start_time}")
             counter += 1
 
             agent.save_model()
@@ -342,16 +352,29 @@ def main():
         # constantly write the replay buffer to the directory
         # start with one actor version
         # store a signal to a signal file (know if all the actors are finished or not) with the actor idx
+        print(f"=========================Actor is up===================")
         signal_file_path = os.path.join(CKPT_DIR, "signal_file_" + str(config.task) + ".txt")
         actor_rp_file_path = os.path.join(RP_DIR, "actor_rp_file_" + str(config.task) + ".txt")
-        ckpt_path = os.path.join(CKPT_DIR, "model")
+        # ckpt_path = os.path.join(CKPT_DIR, "model")
+        ckpt_path = f"{CKPT_DIR}/trained_model/model.pth"
+        
+        # print(f"current path: {os.getcwd()}")
+        # print(f"ckpt path: {ckpt_path}")
+        print(f"ckpt exists: {os.path.exists(ckpt_path)}")
+        print(f"rp exists: {os.path.exists(actor_rp_file_path)}")
 
         while True:
             # if cp file exists and (actor_rp_file not exists or actor_rp_file is empty) ==> learner is done reading the replay buffer
             # break
-            if os.exists(ckpt_path) and (not os.exists(actor_rp_file_path) or os.stat(actor_rp_file_path).st_size == 0):
-                break
+            if os.path.exists(ckpt_path):
+                if not os.path.exists(actor_rp_file_path):
+                    break
+                f_signal_f = open(signal_file_path, 'r')
+                if f_signal_f.read() == '':
+                    f_signal_f.close()
+                    break
         
+        print(f"=========================Actor starts rollout===================")
         # load actor's NN from the cp file
         agent.load_model(ckpt_path, evaluate=True)
         actor_rp_f = open(actor_rp_file_path, 'w')
@@ -365,6 +388,7 @@ def main():
         s1_rec_buffer = np.zeros([s_dim])
         s0_rec_buffer[-1*params.dict['state_dim']:] = s0
 
+        # print(f"s_dim: {s_dim}")
 
         if params.dict['recurrent']:
             a = agent.get_action(s0_rec_buffer, not config.eval)
@@ -374,10 +398,10 @@ def main():
         env.write_action(a)
         epoch = 0
         ep_r = 0.0
-        start = time.time()
 
         # the mahimahi script sets the max steps to 50000
         # I could manually add this for better readability
+        fd_list = []
         while epoch < config.actor_max_epochs:
             epoch += 1
 
@@ -417,7 +441,8 @@ def main():
                 }
 
             if not config.eval:
-                write_rp(actor_rp_f, fd)
+                fd_list.append(fd)
+                # pass
 
             s0 = s1
             a = a1
@@ -430,8 +455,12 @@ def main():
 
             if (epoch% params.dict['eval_frequency'] == 0):
                 # update the log part (for now, print the score)
-                eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter)
+                eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter)
 
+            # if epoch % 500 == 0:
+            print(f"epoch {epoch} for actor{config.task} finished.")
+            
+        write_rp(actor_rp_f, fd_list)
         print(f"total time for actor-{config.task}: {time.time() - start}")
         # write to signal file
 
