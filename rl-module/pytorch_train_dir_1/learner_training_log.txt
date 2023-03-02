@@ -26,3 +26,7 @@ Epoch: 24, Loss/learner's actor_loss: 0.017273511737585068, time: 17.68985867500
 Epoch: 25, Loss/learner's actor_loss: 0.3486868143081665, time: 18.481356143951416
 Epoch: 26, Loss/learner's actor_loss: 0.6130127310752869, time: 18.468743801116943
 Epoch: 27, Loss/learner's actor_loss: 0.5307174921035767, time: 18.50516390800476
+Epoch: 28, Loss/learner's actor_loss: 0.4020591676235199, time: 18.562861919403076
+Epoch: 29, Loss/learner's actor_loss: 0.3289070725440979, time: 17.67413830757141
+Epoch: 30, Loss/learner's actor_loss: -0.545416533946991, time: 17.64441156387329
+Epoch: 31, Loss/learner's actor_loss: 0.12110908329486847, time: 18.551706790924072
