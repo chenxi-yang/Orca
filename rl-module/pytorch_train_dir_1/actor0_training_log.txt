@@ -54,3 +54,11 @@ Eval/Return(Score) of actor 0: 56.40326492987814
 total time for actor-0: 18.410973072052002
 Eval/Return(Score) of actor 0: 54.76550833850092
 total time for actor-0: 18.450414419174194
+Eval/Return(Score) of actor 0: 54.09704701176762
+total time for actor-0: 18.50842523574829
+Eval/Return(Score) of actor 0: 43.202262333862166
+total time for actor-0: 17.615525245666504
+Eval/Return(Score) of actor 0: 23.941588856544247
+total time for actor-0: 17.59043526649475
+Eval/Return(Score) of actor 0: 50.98004081422691
+total time for actor-0: 18.503559350967407
