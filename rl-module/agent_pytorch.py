@@ -381,6 +381,8 @@ class Agent():
     #     self.summary_writer.add_summary(summary, step_counter)
 
     def save_model(self, step=None):
+        if not os.path.exists(self.train_dir):
+            os.makedirs(self.train_dir)
         ckpt_path = f"{self.train_dir}/model.pth"
         # print("Saving models to {}".format(ckpt_path))
         torch.save(

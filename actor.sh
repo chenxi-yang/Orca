@@ -1,5 +1,5 @@
 #!/bin/bash
-if [ $# != 12 ]
+if [ $# != 13 ]
 then
     echo -e "usage:$0 port period first_time [underlying scheme:cubic , vegas , westwood , illinois , bbr, yeah , veno, scal , htcp , cdg , hybla ,... ] [path to ddpg.py] [actor id] [downlink] [uplink] [one-way link delay] [time time] [Qsize] [Max iterations per run]"
     exit
@@ -18,6 +18,7 @@ latency=$9
 finish_time=${10}
 qsize=${11}
 max_it=${12}
+training_session=${13}
 
 echo "Running orca-$scheme: $down"
 
@@ -29,7 +30,7 @@ log="orca-$scheme-$down-$up-$latency-${period}-$qsize"
 echo "will be done in $finish_time seconds ..."
 echo "$path/orca-server-mahimahi $port $path ${period} ${first_time} $scheme $id $down $up $latency $log $finish_time $qsize $max_it"
 
-$path/orca-server-mahimahi $port $path ${period} ${first_time} $scheme $id $down $up $latency $log $finish_time $qsize $max_it
+$path/orca-server-mahimahi $port $path ${period} ${first_time} $scheme $id $down $up $latency $log $finish_time $qsize $max_it $training_session 
 
 #sudo killall -s15 python
 #sleep 10

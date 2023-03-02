@@ -42,8 +42,8 @@ from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 # start with one actor version
 # have a signal file (know if all the actors are finished or not)
 
-CKPT_DIR = f"./rl-module/pytorch_train_dir"
-RP_DIR = "./rl-module/rp_dir"
+
+RP_DIR = f"./rl-module/rp_dir"
 
 # GLOBAL DATA DIRECTORY
 def create_input_op_shape(obs, tensor):
@@ -178,6 +178,8 @@ def main():
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
     parser.add_argument('--actor_max_epochs', type=int, default = 500) # per actor # epoch #TODO: should be 50k use 500 for now
     parser.add_argument('--num_ac_updates_per_step', type=int, default = 1) # per actor # step, Orca's default is 1
+    parser.add_argument('--learner_max_epochs', type=int, default = 200) 
+    parser.add_argument('--training_session', type=int, default=123123) 
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -186,6 +188,14 @@ def main():
     global config
     global params
     config = parser.parse_args()
+    
+    training_session = config.training_session
+    print(f"training_session: {training_session}")
+    
+    CKPT_DIR = f"./rl-module/pytorch_train_dir"
+    CKPT_DIR = CKPT_DIR + "_" + str(training_session)
+    if not os.path.exists(CKPT_DIR):
+        os.makedirs(CKPT_DIR)
 
     ## parameters from file
     params = Params(os.path.join(config.base_path, 'params.json'))
@@ -296,7 +306,7 @@ def main():
         agent.save_model()
 
         signal_file_path_lists = [os.path.join(CKPT_DIR, "signal_file_" + str(i) + ".txt") for i in range(params.dict['num_actors'])]
-        actor_rp_file_path_lists = [os.path.join(RP_DIR, "actor_rp_file_" + str(i) + ".txt") for i in range(params.dict['num_actors'])]
+        actor_rp_file_path_lists = [os.path.join(RP_DIR, "actor_rp_file_" + str(i) + "_" + str(training_session) + ".txt") for i in range(params.dict['num_actors'])]
         
         # initialize the signal file
         for signal_file_path in signal_file_path_lists:
@@ -304,7 +314,7 @@ def main():
                 pass
             f_actor_signal.close()
 
-        while counter < params.dict['max_epochs']: # 1m epochs
+        while counter < config.learner_max_epochs: # params.dict['max_epochs']: # 1m epochs
             # check the signal file
             # if all the actors are finished, then read all the files
             epoch_start_time = time.time()
@@ -376,7 +386,7 @@ def main():
         # store a signal to a signal file (know if all the actors are finished or not) with the actor idx
         print(f"=========================Actor is up===================")
         signal_file_path = os.path.join(CKPT_DIR, "signal_file_" + str(config.task) + ".txt")
-        actor_rp_file_path = os.path.join(RP_DIR, "actor_rp_file_" + str(config.task) + ".txt")
+        actor_rp_file_path = os.path.join(RP_DIR, "actor_rp_file_" + str(config.task) + "_" + str(training_session) + ".txt")
         # ckpt_path = os.path.join(CKPT_DIR, "model")
         ckpt_path = f"{CKPT_DIR}/trained_model/model.pth"
         

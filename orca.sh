@@ -1,9 +1,10 @@
-if [ $# -eq 2 ]
+if [ $# -eq 3 ]
 then
     source setup.sh
 
     first_time=$1
     port_base=$2
+    training_session=$3
     cur_dir=`pwd -P`
     scheme_="cubic"
     max_steps=50000         #todo Run untill you collect 50k samples per actor 
@@ -25,8 +26,8 @@ then
        num_actors=1
        sed "s/\"num_actors\"\: 1/\"num_actors\"\: $num_actors/" $cur_dir/params_base.json > "${dir}/params.json"
 
-       echo "./learner.sh  $dir $first_time  &"
-       ./learner.sh  $dir ${first_time} &
+       echo "./learner.sh  $dir $first_time $training_session &"
+       ./learner.sh  $dir ${first_time} ${training_session} &
        #Bring up the actors:
        act_id=0
        for dl in 48
@@ -38,7 +39,7 @@ then
                bdp=$((2*dl*del/12))     #12Mbps=1pkt per 1 ms ==> BDP=2*del*BW=2*del*dl/12
                for qs in $((2*bdp))
                do
-                   ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del $eval_duration $qs 0 &
+                   ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del $eval_duration $qs 0 ${training_session} &
                    pids="$pids $!"
                    act_id=$((act_id+1))
                    act_port=$((port_base+act_id))
@@ -62,15 +63,15 @@ then
     # If you are here: You are going to start/continue learning a better model!
 
       #Bring up the learner:
-      echo "./learner.sh  $dir $first_time &"
+      echo "./learner.sh  $dir $first_time $training_session &"
       if [ $1 -eq 1 ];
       then
           # Start the learning from the scratch
-           /users/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} &
+           /users/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} --training_session=${training_session}&
            lpid=$!
        else
           # Continue the learning on top of previous model
-           /users/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} --load &
+           /users/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} --load --training_session=${training_session}&
            lpid=$!
        fi
        sleep 10
@@ -87,7 +88,7 @@ then
                bdp=$((2*dl*del/12))      #12Mbps=1pkt per 1 ms ==> BDP=2*del*BW=2*del*dl/12
                for qs in $((2*bdp))
                do
-                   ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs $max_steps
+                   ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs $max_steps ${training_session}
                    pids="$pids $!"
                    act_id=$((act_id+1))
                    act_port=$((port_base+act_id))
