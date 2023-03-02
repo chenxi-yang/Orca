@@ -66,7 +66,8 @@ class ActorNetwork(nn.Module):
 
     # TODO: did not assign names to the layers, e.g. fc1, fc2, fc3
     def forward(self, s):
-        s = s.unsqueeze(0)
+        if len(s.shape) == 1:
+            s = s.unsqueeze(0)
         h1 = self.fc1(s)
         h1 = self.bn1(h1)
         h1 = self.leakyrelu1(h1)
@@ -196,15 +197,18 @@ class Agent():
 
         # todo: pytorch logger
         # self.summary_writer = summary
+        
+        self.a_loss = None
 
     def train_actor(self, s0, is_training=True):
         # todo: omit the global step for now
-        actor_out = self.actor(s0, is_training)
+        actor_out = self.actor(s0) # when eval, the network is in eval mode
         critic_actor_out = self.critic(s0, actor_out)
         a_loss = - torch.mean(critic_actor_out)
         self.actor_optim.zero_grad()
         a_loss.backward()
         self.actor_optim.step()
+        self.a_loss = a_loss.item()
 
     def train_critic(self, s0, action, reward, s1, terminal, is_training=True, importance=False):
         use_huber = True
@@ -246,7 +250,7 @@ class Agent():
             NotImplementedError(f"use_huber is False, not implemented yet.")
         
         self.critic_optim.zero_grad()
-        c_loss.backward()
+        c_loss.backward(retain_graph=True)
         self.critic_optim.step()
         self.critic2_optim.zero_grad()
         c_loss2.backward()
@@ -345,8 +349,9 @@ class Agent():
                 reward_batch,
                 s1_batch,
                 terminal_batch,
-            ) = self.rp_buffer.sample().as_tuple() # todo: double check the usage of rp_buffer
+            ) = self.rp_buffer.sample() # todo: double check the usage of rp_buffer
         
+        # print(f"s0_batch.shape: {s0_batch.shape}")
         s0_batch = torch.FloatTensor(s0_batch).to(self.device)
         action_batch = torch.FloatTensor(action_batch).to(self.device)
         reward_batch = torch.FloatTensor(reward_batch).to(self.device)

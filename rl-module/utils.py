@@ -137,8 +137,6 @@ class ReplayBuffer:
 
         self.length_buf = 0
 
-
-
     def peek_buffer(self):
         return [self.s0_buf, self.a_buf, self.reward_buf, self.s1_buf, self.terminal_buf]
 
