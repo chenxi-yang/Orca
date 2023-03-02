@@ -66,11 +66,11 @@ then
       if [ $1 -eq 1 ];
       then
           # Start the learning from the scratch
-           /home/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} &
+           /users/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} &
            lpid=$!
        else
           # Continue the learning on top of previous model
-           /home/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} --load &
+           /users/`logname`/venv/bin/python ${dir}/d5.py --job_name=learner --task=0 --base_path=${dir} --load &
            lpid=$!
        fi
        sleep 10
