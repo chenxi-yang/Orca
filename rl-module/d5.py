@@ -213,7 +213,7 @@ def main():
         params.dict['tau'] = 1.0
 
     # no restriction for the device
-    torch.seed(1234)
+    torch.manual_seed(1234)
     random.seed(1234)
     np.random.seed(1234)
 
