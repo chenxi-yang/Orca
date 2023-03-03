@@ -213,7 +213,6 @@ def main():
     if params.dict['use_TCP']:
         env_str = "TCP"
         env_peek = TCP_Env_Wrapper(env_str, params, use_normalizer=params.dict['use_normalizer'])
-
     else:
         env_str = 'YourEnvironment'
         env_peek =  Env_Wrapper(env_str)
