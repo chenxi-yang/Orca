@@ -176,9 +176,9 @@ def main():
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--task', type=int, required=True, help='Task id')
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
-    parser.add_argument('--actor_max_epochs', type=int, default = 500) # per actor # epoch #TODO: should be 50k use 500 for now
+    parser.add_argument('--actor_max_epochs', type=int, default = 200) # per actor # epoch #TODO: should be 50k use 500 for now
     parser.add_argument('--num_ac_updates_per_step', type=int, default = 1) # per actor # step, Orca's default is 1
-    parser.add_argument('--learner_max_epochs', type=int, default = 200) 
+    parser.add_argument('--learner_max_epochs', type=int, default = 2) 
     parser.add_argument('--training_session', type=int, default=123123) 
 
     # new parameters
@@ -196,6 +196,8 @@ def main():
     CKPT_DIR = CKPT_DIR + "_" + str(training_session)
     if not os.path.exists(CKPT_DIR):
         os.makedirs(CKPT_DIR)
+
+    finish_file = os.path.join(CKPT_DIR, "finish.txt")
 
     ## parameters from file
     params = Params(os.path.join(config.base_path, 'params.json'))
@@ -291,6 +293,9 @@ def main():
         if config.eval is True:
             print("=========================Learner is up===================")
             # TODO: pytorch, no kill signal
+            while True:
+                time.sleep(1)
+                continue
             # while not mon_sess.should_stop():
                 # time.sleep(1)
                 # continue
@@ -353,11 +358,13 @@ def main():
                 #             data.append(tmp_val.astype(np.float))
                 #     agent.store_experience(data[0], data[1], data[2], data[3], data[4])
 
+            print(f"agent's rp length: {agent.rp_buffer.length_buf}")
             # finish reading data from rp
             # update a signal file (learner_finish_reading_rp)
             for _ in range(config.num_ac_updates_per_step):
                 agent.train_step()
                 if params.dict['use_hard_target'] == False:
+                    # if counter % 5 == 0: #TODO:  update the target function every 5 epochs
                     agent.target_update()
                 else:
                     if counter % params.dict['hard_target'] == 0 :
@@ -371,12 +378,12 @@ def main():
             agent.save_model()
             # clean up the rp file
             # clean up the signal file
-            for actor_rp_file_path in actor_rp_file_path_lists:
-                f_actor_rp = open(actor_rp_file_path, 'w')
-                f_actor_rp.close()
             for signal_file_path in signal_file_path_lists:
                 f_actor_signal = open(signal_file_path, 'w')
                 f_actor_signal.close()
+        with open(finish_file, 'w') as f_finish:
+            f_finish.write('1')
+        f_finish.close()
 
     else: # is normal actor
         # load NN from learner's file
@@ -393,10 +400,15 @@ def main():
         # print(f"ckpt path: {ckpt_path}")
         print(f"ckpt exists: {os.path.exists(ckpt_path)}")
         print(f"rp exists: {os.path.exists(actor_rp_file_path)}")
+        finish_flag = False
         while True:
             while True:
                 # if cp file exists and (actor_rp_file not exists or actor_rp_file is empty) ==> learner is done reading the replay buffer
                 # break
+                if os.path.exists(finish_file):
+                    print(f"finish file exists")
+                    finish_flag = True
+                    break
                 if os.path.exists(ckpt_path):
                     if not os.path.exists(actor_rp_file_path):
                         break
@@ -405,6 +417,9 @@ def main():
                         f_signal_f.close()
                         break
             
+            if finish_flag:
+                break
+
             print(f"=========================Actor starts rollout===================")
             # load actor's NN from the cp file
             agent.load_model(ckpt_path, evaluate=True)
@@ -485,11 +500,19 @@ def main():
                 if not params.dict['use_TCP'] and (terminal):
                     if agent.actor_noise != None:
                         agent.actor_noise.reset()
-
-                # if (epoch% params.dict['eval_frequency'] == 0):
-                if (epoch % 499 == 0):
+                
+                if config.actor_max_epochs == 200:
+                    if (epoch% 199 == 0):
+                        eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
+                elif config.actor_max_epochs == 500:
+                    if (epoch% 499 == 0):
+                        eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
+                else:
+                    if (epoch% params.dict['eval_frequency'] == 0):
+                # if (epoch % 499 == 0):
+                # if (epoch % (params.dict['eval_frequency'] - 1) == 0):
                     # update the log part (for now, print the score)
-                    eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
+                        eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
 
                 # TODO: when the epoch is enlarged
                 # if epoch % 500 == 0:

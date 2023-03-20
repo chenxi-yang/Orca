@@ -9,7 +9,7 @@ then
     scheme_="cubic"
     max_steps=50000         #todo Run untill you collect 50k samples per actor 
     eval_duration=30
-    num_actors=1
+    num_actors=2
     memory_size=$((max_steps*num_actors))
     dir="${cur_dir}/rl-module"
 
@@ -32,7 +32,7 @@ then
        act_id=0
        for dl in 48
        do
-           downl="wired$dl"
+           downl="wired$dl" # Orca to client
            upl="wired48"
            for del in 10
            do
@@ -78,6 +78,7 @@ then
 
        #Bring up the actors:
        # Here, we go with single actor
+       #TODO: add actor
        act_id=0
        for dl in 48
        do
@@ -88,7 +89,7 @@ then
                bdp=$((2*dl*del/12))      #12Mbps=1pkt per 1 ms ==> BDP=2*del*BW=2*del*dl/12
                for qs in $((2*bdp))
                do
-                   ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs $max_steps ${training_session}
+                   ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs $max_steps ${training_session} &
                    pids="$pids $!"
                    act_id=$((act_id+1))
                    act_port=$((port_base+act_id))
