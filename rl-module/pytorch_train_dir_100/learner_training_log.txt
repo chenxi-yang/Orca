@@ -1,0 +1,9 @@
+Epoch: 0, Loss/learner's actor_loss: 0.8443201184272766, time: 156.32023525238037
+Epoch: 1, Loss/learner's actor_loss: 0.8294926881790161, time: 119.72203373908997
+Epoch: 2, Loss/learner's actor_loss: 0.4063989520072937, time: 171.22756266593933
+Epoch: 3, Loss/learner's actor_loss: 0.31435319781303406, time: 171.53190398216248
+Epoch: 4, Loss/learner's actor_loss: 0.20386245846748352, time: 158.0510184764862
+Epoch: 5, Loss/learner's actor_loss: 0.11045458167791367, time: 107.91623878479004
+Epoch: 6, Loss/learner's actor_loss: 0.14032572507858276, time: 107.90686774253845
+Epoch: 7, Loss/learner's actor_loss: 0.37026363611221313, time: 107.76149249076843
+Epoch: 8, Loss/learner's actor_loss: 0.7605040669441223, time: 171.9372022151947

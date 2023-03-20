@@ -35,7 +35,7 @@ $path/orca-server-mahimahi $port $path ${period} ${first_time} $scheme $id $down
 #sudo killall -s15 python
 #sleep 10
 echo "Finished."
-if [ ${first_time} -eq 2 ] || [ ${first_time} -eq 4 ]
+if [ ${first_time} -eq 1 ] || [ ${first_time} -eq 2 ] || [ ${first_time} -eq 4 ]
 then
     echo "Doing Some Analysis ..."
     out="sum-${log}.tr"
@@ -43,7 +43,7 @@ then
     $path/mm-thr 500 $path/log/down-${log} 1>tmp 2>res_tmp
     cat res_tmp >>$path/log/$out
     echo "------------------------------" >> $path/log/$out
-    rm *tmp
+    # rm *tmp
 fi
 echo "Done"
 

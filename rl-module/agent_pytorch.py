@@ -22,6 +22,7 @@
 import torch.nn as nn
 import torch
 from torch.optim import Adam
+import itertools
 
 # import tensorflow as tf
 import numpy as np
@@ -64,6 +65,9 @@ class ActorNetwork(nn.Module):
         self.leakyrelu1 = nn.LeakyReLU(negative_slope=0.2) # 0.2 is the tf default value
         self.leakyrelu2 = nn.LeakyReLU(negative_slope=0.2)
 
+        # self.leakyrelu1 = nn.ReLU()
+        # self.leakyrelu2 = nn.ReLU()
+
     # TODO: did not assign names to the layers, e.g. fc1, fc2, fc3
     def forward(self, s):
         if len(s.shape) == 1:
@@ -98,6 +102,9 @@ class CriticNetwork(nn.Module):
         # ReLU
         self.leakyrelu1 = nn.LeakyReLU(negative_slope=0.2) # 0.2 is the tf default value
         self.leakyrelu2 = nn.LeakyReLU(negative_slope=0.2)
+
+        # self.leakyrelu1 = nn.ReLU()
+        # self.leakyrelu2 = nn.ReLU()
     
     def forward(self, s, action):
         h1 = self.fc1(s)
@@ -118,8 +125,14 @@ class Agent():
         self.PER = PER
         self.CDQ = CDQ # True by default
         self.LOSS_TYPE = LOSS_TYPE
-        self.lr_a = lr_a
-        self.lr_c = lr_c
+        # TODO: update
+        # self.LOSS_TYPE = 'MSE'
+        # self.lr_a = lr_a
+        # self.lr_c = lr_c
+
+        self.lr_a = lr_a / 5
+        self.lr_c = lr_c / 5
+
         self.s_dim = s_dim
         self.a_dim = a_dim
         self.gamma = gamma
@@ -185,6 +198,7 @@ class Agent():
         self.actor_optim = Adam(self.actor.parameters(), lr=self.lr_a)
         self.critic_optim = Adam(self.critic.parameters(), lr=self.lr_c)
         self.critic2_optim = Adam(self.critic2.parameters(), lr=self.lr_c)
+        self.critic_optim_all = Adam(itertools.chain(*[self.critic.parameters(), self.critic2.parameters()]), lr=self.lr_c)
 
         self.terminal = None
         self.reward = None
@@ -228,6 +242,10 @@ class Agent():
                 target_actor_out = self.target_actor(s1)
                 eps = torch.randn_like(target_actor_out) * 0.1
                 eps = torch.clamp(eps, -0.2, 0.2)
+                # encourage exploration
+                # eps = torch.randn_like(target_actor_out) * 0.2
+                # eps = torch.clamp(eps, -0.25, 0.25)
+
                 t_a = target_actor_out + eps
                 t_a = torch.clamp(t_a, -1.0, 1.0)
 
@@ -256,6 +274,11 @@ class Agent():
         self.critic2_optim.zero_grad()
         c_loss2.backward()
         self.critic2_optim.step()
+
+        # total_c_loss = c_loss + c_loss2
+        # self.critic_optim_all.zero_grad()
+        # total_c_loss.backward()
+        # self.critic_optim_all.step()
 
     # todo: add pytorch logger
     # def create_tf_summary(self):
