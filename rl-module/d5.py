@@ -1,5 +1,6 @@
 '''
 PyTorch version of the d5.py in Orca
+PyTorch version of the d5.py in Orca
 '''
 
 import threading
@@ -8,10 +9,17 @@ import logging
 
 import torch
 import torch.distributed as dist
+# import tensorflow as tf
+
+import torch
+import torch.distributed as dist
 import sys
 # from agent import Agent
 from agent_pytorch import Agent
+# from agent import Agent
+from agent_pytorch import Agent
 import os
+# TODO set up new logger path
 # TODO set up new logger path
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import argparse
@@ -44,7 +52,26 @@ from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 
 
 RP_DIR = f"./rl-module/rp_dir"
+# noise type: default: gaussian
+# run learner and actor separately
 
+# run single actor first and then add the distributed training
+# use a shared memory to store the replay buffer
+# # use a shared queue/shared directory
+# # use a file to store the replay buffer
+# each learner, periodically read all the files in the directory (when all the actor finishes)
+ # first, store learner's NN data
+# and assign the parameters to the actor
+# each actor, 
+# load NN from learner's file
+# constantly write the replay buffer to the directory
+# start with one actor version
+# have a signal file (know if all the actors are finished or not)
+
+
+RP_DIR = f"./rl-module/rp_dir"
+
+# GLOBAL DATA DIRECTORY
 # GLOBAL DATA DIRECTORY
 def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]

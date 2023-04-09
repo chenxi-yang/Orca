@@ -36,7 +36,7 @@
     "tb_interval": 1,
     "ckptdir": null,
     "scheme": null,
-    "num_actors": 1,
+    "num_actors": 2,
     "logdir": "train_dir",
     "learner_ip": "127.0.0.1:33330",
     "actor_ip": [
