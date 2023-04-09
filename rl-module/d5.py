@@ -22,16 +22,14 @@ import pickle
 from utils import logger, Params
 from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 
+RP_DIR = f"./rl-module/rp_dir"
 
 def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]
     return np.reshape(obs, input_shape)
 
 
-
-def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter):
-
-
+def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter, f_log_file):
     score_list = []
 
     eval_times = 1
@@ -77,14 +75,6 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
 
             ep_r = ep_r + r
 
-            # TODO: add pytorch logger
-            # if (step_counter+1) % params.dict['tb_interval'] == 0:
-
-            #     summary = tf.summary.Summary()
-            #     summary.value.add(tag='Eval/Step/0-Actions', simple_value=env.map_action(a))
-            #     summary.value.add(tag='Eval/Step/2-Reward', simple_value=r)
-            # summary_writer.add_summary(summary, eval_step_counter)
-
             s0 = s1
             a = a1
             if params.dict['recurrent']:
@@ -94,10 +84,6 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
                 score_list.append(ep_r)
                 break
 
-    # TODO: add pytorch logger
-    # summary = tf.summary.Summary()
-    # summary.value.add(tag='Eval/Return', simple_value=np.mean(score_list))
-    # summary_writer.add_summary(summary, epoch)
     print(f"Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}")
     f_log_file.write(f"Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}\n")
 
@@ -106,20 +92,6 @@ def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_
 
 def write_rp(f, fd_list): # actor writes one line of replay buffer to the file
     pickle.dump(fd_list, f)
-    # for fd in fd_list:
-    #     for key, val in fd.items():
-    #         if isinstance(val, np.ndarray):
-    #             for i in range(len(val)):
-    #                 if i == len(val) - 1:
-    #                     f.write(str(val[i]))
-    #                 else:
-    #                     f.write(str(val[i]) + ",")
-    #         else:
-    #             f.write(str(val))
-    #         f.write(";")
-    #     f.write("\n")
-    #     # f.flush()
-    # f.flush()
 
 
 class learner_killer():
@@ -155,6 +127,7 @@ def main():
     parser.add_argument('--mem_w', type=int, default = 12345)
     parser.add_argument('--base_path',type=str, required=True)
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
+    parser.add_argument('--learner_max_epochs', type=int, default = 200) 
     parser.add_argument('--task', type=int, required=True, help='Task id')
 
     # new parameters
@@ -321,18 +294,6 @@ def main():
                 buffer_data = pickle.load(f_actor_rp)
                 for data in buffer_data:
                     agent.store_experience(data[0], data[1], data[2], data[3], data[4])
-                
-                # for line in f_actor_rp:
-                #     read_data = line[:-1].split(";")
-                #     for idx, val in enumerate(read_data):
-                #         if idx == 2: # reward
-                #             data.append(np.array([float(val)]))
-                #         elif ',' not in val:
-                #             data.append(float(val))
-                #         else:
-                #             tmp_val = np.array([float(i) for i in val.split(",")])
-                #             data.append(tmp_val.astype(np.float))
-                #     agent.store_experience(data[0], data[1], data[2], data[3], data[4])
 
             print(f"agent's rp length: {agent.rp_buffer.length_buf}")
             # finish reading data from rp
@@ -431,7 +392,7 @@ def main():
                 s1, r, terminal, error_code = env.step(a, eval_=config.eval)
 
                 if error_code == True:
-                    s1_rec_buffer = np.concatenate( (s0_rec_buffer[params.dict['state_dim']:], s1) )
+                    s1_rec_buffer = np.concatenate((s0_rec_buffer[params.dict['state_dim']:], s1) )
 
                     if params.dict['recurrent']:
                         a1 = agent.get_action(s1_rec_buffer, not config.eval)
@@ -446,22 +407,8 @@ def main():
                     continue
                 
                 if params.dict['recurrent']:
-                    # fd = {
-                    #     's0': s0_rec_buffer,
-                    #     'a': a,
-                    #     'r': np.array([r]),
-                    #     's1': s1_rec_buffer,
-                    #     'terminal': np.array([terminal], np.float)
-                    # }
                     fd = (s0_rec_buffer, a, np.array([r]), s1_rec_buffer, np.array([terminal], np.float))
                 else:
-                    # fd = {
-                    #     's0': s0,
-                    #     'a': a,
-                    #     'r': np.array([r]),
-                    #     's1': s1,
-                    #     'terminal': np.array([terminal], np.float)
-                    # }
                     fd = (s0, a, np.array([r]), s1, np.array([terminal], np.float))
 
                 if not config.eval:
