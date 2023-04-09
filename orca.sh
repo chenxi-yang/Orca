@@ -32,10 +32,14 @@ then
        act_id=0
        for dl in 48
        do
+<<<<<<< HEAD
         #    downl="wired$dl" # Orca to client
         #    downl="wired48soft"
         #    downl="wired48softsoft"
            downl="wired48softsoftsoft"
+=======
+           downl="wired$dl" # Orca to client
+>>>>>>> db2c0db3163709d84fc2932915df925dd0b64b0c
            upl="wired48"
            for del in 10
            do

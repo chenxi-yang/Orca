@@ -1,6 +1,9 @@
 '''
 PyTorch version of the d5.py in Orca
+<<<<<<< HEAD
 PyTorch version of the d5.py in Orca
+=======
+>>>>>>> db2c0db3163709d84fc2932915df925dd0b64b0c
 '''
 
 import threading
@@ -9,6 +12,7 @@ import logging
 
 import torch
 import torch.distributed as dist
+<<<<<<< HEAD
 # import tensorflow as tf
 
 import torch
@@ -21,6 +25,13 @@ from agent_pytorch import Agent
 import os
 # TODO set up new logger path
 # TODO set up new logger path
+=======
+import sys
+# from agent import Agent
+from agent_pytorch import Agent
+import os
+# TODO set up new logger path
+>>>>>>> db2c0db3163709d84fc2932915df925dd0b64b0c
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import argparse
 import gym
@@ -49,6 +60,7 @@ from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 # constantly write the replay buffer to the directory
 # start with one actor version
 # have a signal file (know if all the actors are finished or not)
+<<<<<<< HEAD
 
 
 RP_DIR = f"./rl-module/rp_dir"
@@ -77,6 +89,17 @@ def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]
     return np.reshape(obs, input_shape)
 
+=======
+
+
+RP_DIR = f"./rl-module/rp_dir"
+
+# GLOBAL DATA DIRECTORY
+def create_input_op_shape(obs, tensor):
+    input_shape = [x or -1 for x in tensor.shape.as_list()]
+    return np.reshape(obs, input_shape)
+
+>>>>>>> db2c0db3163709d84fc2932915df925dd0b64b0c
 def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file):
     score_list = []
 
@@ -205,7 +228,11 @@ def main():
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
     parser.add_argument('--actor_max_epochs', type=int, default = 200) # per actor # epoch #TODO: should be 50k use 500 for now
     parser.add_argument('--num_ac_updates_per_step', type=int, default = 1) # per actor # step, Orca's default is 1
+<<<<<<< HEAD
     parser.add_argument('--learner_max_epochs', type=int, default = 200) 
+=======
+    parser.add_argument('--learner_max_epochs', type=int, default = 2) 
+>>>>>>> db2c0db3163709d84fc2932915df925dd0b64b0c
     parser.add_argument('--training_session', type=int, default=123123) 
 
     # new parameters
