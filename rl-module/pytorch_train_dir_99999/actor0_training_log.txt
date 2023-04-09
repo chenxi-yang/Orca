@@ -1,2 +1,0 @@
-Eval/Return(Score) of actor 0: -44.431435091973206
-total time for actor-0: 8.461432218551636

@@ -178,7 +178,7 @@ def main():
     parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
     parser.add_argument('--actor_max_epochs', type=int, default = 200) # per actor # epoch #TODO: should be 50k use 500 for now
     parser.add_argument('--num_ac_updates_per_step', type=int, default = 1) # per actor # step, Orca's default is 1
-    parser.add_argument('--learner_max_epochs', type=int, default = 2) 
+    parser.add_argument('--learner_max_epochs', type=int, default = 200) 
     parser.add_argument('--training_session', type=int, default=123123) 
 
     # new parameters
