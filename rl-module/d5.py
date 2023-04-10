@@ -4,7 +4,6 @@ pytorch Orca
 
 import threading
 import logging
-import tensorflow as tf
 import sys
 # from agent import Agent
 from agent_pytorch import Agent
@@ -31,7 +30,7 @@ def create_input_op_shape(obs, tensor):
     return np.reshape(obs, input_shape)
 
 
-def evaluate_TCP(env, agent, epoch, summary_writer, params, s0_rec_buffer, eval_step_counter, f_log_file):
+def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file):
     score_list = []
 
     eval_times = 1
@@ -131,7 +130,11 @@ def main():
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--learner_max_epochs', type=int, default = 200) 
     parser.add_argument('--task', type=int, required=True, help='Task id') # actor idx
+    parser.add_argument('--training_session', type=int, default=0, help='Training session id')
     parser.add_argument('--mix_env', default=False, help="per training round, use single env or mix envs")
+    parser.add_argument('--pytorch_logdir', type=str, default="pytorch_train_dir")
+    parser.add_argument('--actor_max_epochs', type=int, default = 200) # per actor # epoch #TODO: should be 50k use 500 for now
+    parser.add_argument('--num_ac_updates_per_step', type=int, default = 1) # per actor # step, Orca's default is 1
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -161,6 +164,7 @@ def main():
     else:
         is_learner = config.job_name == 'learner'
         def is_actor_fn(i): 
+            print(f"is actor fn: {i}, task: {config.task}")
             return config.job_name == 'actor' and i == config.task
 
     # set up the TCP usage
@@ -243,12 +247,7 @@ def main():
     # and assign the parameters to the actor
     # have a signal file (know if all the actors are finished or not)
     if is_learner: # is learner
-        if config.eval is True:
-            print("=========================Learner is up===================")
-            # TODO: pytorch, no kill signal
-            while True:
-                time.sleep(1)
-                continue
+        print("=========================Learner is up===================")
 
         if config.load is False:
             agent.init_target()
@@ -271,6 +270,7 @@ def main():
         while counter < config.learner_max_epochs: # params.dict['max_epochs']: # 1m epochs
             # check the signal file
             # if all the actors are finished, then read all the files
+            print(f"==== Learner in epoch {counter} ====")
             epoch_start_time = time.time()
             while True:
                 #read the signal file
@@ -289,18 +289,23 @@ def main():
                     break
 
             # read all the rp files
+            rp_idx = 0
             for actor_rp_file_path in actor_rp_file_path_lists:
                 # print(f"Loading buffer from {actor_rp_file_path}")
                 f_actor_rp = open(actor_rp_file_path, 'rb') # read binary
                 buffer_data = pickle.load(f_actor_rp)
                 for data in buffer_data:     
-                    agent.store_experience(data[0], data[1], data[2], data[3], data[4])
+                    agent.store_experience(data[0], data[1], data[2], data[3], data[4], idx=rp_idx)
+                rp_idx += 1
 
-            print(f"agent's rp length: {agent.rp_buffer.length_buf}")
+            if config.mix_env:
+                print(f"agent's rp length: {agent.rp_buffer.length_buf}")
+            else:
+                print(f"agent's rp length: {[agent.rp_buffer_list[i].length_buf for i in range(params.dict['num_actors'])]}")
             # finish reading data from rp
             # update a signal file (learner_finish_reading_rp)
             # TODO: current strategy: one random seed for all steps here
-            if not config.mix_envs:
+            if not config.mix_env:
                 selected_env = np.random.randint(0, params.dict['num_actors'])
             else:
                 selected_env = None
@@ -346,6 +351,7 @@ def main():
         print(f"rp exists: {os.path.exists(actor_rp_file_path)}")
         finish_flag = False
         while True:
+            print(f"Wait for the learner to finish.")
             while True:
                 # if cp file exists and (actor_rp_file not exists or actor_rp_file is empty) ==> learner is done reading the replay buffer
                 # break
@@ -360,7 +366,8 @@ def main():
                     if f_signal_f.read() == '':
                         f_signal_f.close()
                         break
-            
+                    
+            print(f"learner finish: {finish_flag}")
             if finish_flag:
                 break
 
@@ -457,6 +464,8 @@ def main():
             actor_rp_f.close()
             signal_f.write(f"1") # represents that the actor is done
             signal_f.close()
+            
+            print(f"====== one actor step finishes ======")
         
         
 

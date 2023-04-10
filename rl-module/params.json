@@ -32,7 +32,7 @@
     "lr_c": 0.001,
     "tau": 0.001,
     "gamma": 0.995,
-    "memsize": 2553600,
+    "memsize": 100000,
     "tb_interval": 1,
     "ckptdir": null,
     "scheme": null,
