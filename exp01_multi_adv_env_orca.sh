@@ -9,7 +9,7 @@ then
     scheme_="cubic"
     max_steps=50000         #todo Run untill you collect 50k samples per actor 
     eval_duration=30
-    num_actors=3
+    num_actors=4
     memory_size=$((max_steps*num_actors))
     dir="${cur_dir}/rl-module"
 

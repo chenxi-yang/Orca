@@ -121,7 +121,10 @@ class CriticNetwork(nn.Module):
 class Agent():
     def __init__(self, s_dim, a_dim, h1_shape, h2_shape, gamma=0.995, batch_size=8, lr_a=1e-4, lr_c=1e-3, tau=1e-3, mem_size=1e5, action_scale=1.0, action_range=(-1.0, 1.0),
                 noise_type=3, noise_exp=50000, summary=None,stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu',
-                train_dir=None):
+                train_dir=None, mix_env=None, num_actors=None):
+        
+        self.mix_env = mix_env
+        
         self.PER = PER
         self.CDQ = CDQ # True by default
         self.LOSS_TYPE = LOSS_TYPE
@@ -164,10 +167,19 @@ class Agent():
         self.h1_shape=h1_shape
         self.h2_shape=h2_shape
         self.stddev=stddev
-        if not self.PER:
-            self.rp_buffer = ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
+        if not self.mix_env:
+            self.rp_buffer_list = []
+            if not self.PER:
+                for i in range(num_actors):
+                    self.rp_buffer_list.append(ReplayBuffer(int(mem_size/num_actors), s_dim, a_dim, batch_size=batch_size))
+            else:
+                for i in range(num_actors):
+                    self.rp_buffer_list.append(Prioritized_ReplayBuffer(int(mem_size/num_actors), s_dim, a_dim, batch_size=batch_size, alpha=alpha))
         else:
-            self.rp_buffer = Prioritized_ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size, alpha=alpha)
+            if not self.PER:
+                self.rp_buffer = ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
+            else:
+                self.rp_buffer = Prioritized_ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size, alpha=alpha)
 
         if noise_type == 1:
             self.actor_noise = OU_Noise(mu=np.zeros(a_dim), sigma=float(self.stddev) * np.ones(a_dim), dt=1, exp=self.noise_exp)
@@ -343,23 +355,37 @@ class Agent():
         critic_out = self.critic(s0, actor_out)
         return critic_out
 
-    def store_experience(self, s0, a, r, s1, terminal):
-        self.rp_buffer.store(s0, a, r, s1, terminal)
-
-    def store_many_experience(self, s0, a, r, s1, terminal, length):
-        if self.PER:
-            for i in range(length):
-                self.rp_buffer.store(s0[i], a[i], r[i], s1[i], terminal[i])
+    def store_experience(self, s0, a, r, s1, terminal, idx=None):
+        # if different env uses different environments
+        if not self.mix_env:
+            self.rp_buffer_list[idx].store(s0, a, r, s1, terminal)
         else:
-            self.rp_buffer.store_many(s0, a, r, s1, terminal, length)
+            self.rp_buffer.store(s0, a, r, s1, terminal)
 
-    def sample_experince(self):
-        return self.rp_buffer.sample()
+    def store_many_experience(self, s0, a, r, s1, terminal, length, idx=None):
+        if not self.mix_env:
+            if self.PER:
+                for i in range(length):
+                    self.rp_buffer_list[idx].store(s0[i], a[i], r[i], s1[i], terminal[i])
+            else:
+                self.rp_buffer_list[idx].store_many(s0, a, r, s1, terminal, length)
+        else:
+            if self.PER:
+                for i in range(length):
+                    self.rp_buffer.store(s0[i], a[i], r[i], s1[i], terminal[i])
+            else:
+                self.rp_buffer.store_many(s0, a, r, s1, terminal, length)
+
+    def sample_experince(self, idx=None):
+        if not self.mix_env:
+            return self.rp_buffer_list[idx].sample()
+        else:
+            return self.rp_buffer.sample()
 
     def train_step_td(self):
         return None
 
-    def train_step(self):
+    def train_step(self, idx=None):
         if self.PER: # Orca sets PER to False by default
             NotImplementedError(f"PER True is not implemented for {self.__class__.__name__}.")
             # _, td_errors = self.sess.run([self.critic_train_op, self.td_error], feed_dict=fd)\# if self.PER:
@@ -367,13 +393,22 @@ class Agent():
             #     new_priorities = np.abs(np.squeeze(td_errors)) + 1e-6
             #     self.rp_buffer.update_priorities(idxes, new_priorities)
         else:
-            (
-                s0_batch,
-                action_batch,
-                reward_batch,
-                s1_batch,
-                terminal_batch,
-            ) = self.rp_buffer.sample() # todo: double check the usage of rp_buffer
+            if not self.mix_env:
+                (
+                    s0_batch,
+                    action_batch,
+                    reward_batch,
+                    s1_batch,
+                    terminal_batch,
+                ) = self.rp_buffer_list[idx].sample() 
+            else:
+                (
+                    s0_batch,
+                    action_batch,
+                    reward_batch,
+                    s1_batch,
+                    terminal_batch,
+                ) = self.rp_buffer.sample() 
         
         # print(f"s0_batch.shape: {s0_batch.shape}")
         s0_batch = torch.FloatTensor(s0_batch).to(self.device)

@@ -22,6 +22,8 @@ import pickle
 from utils import logger, Params
 from envwrapper import Env_Wrapper, TCP_Env_Wrapper, GYM_Env_Wrapper
 
+import torch
+
 RP_DIR = f"./rl-module/rp_dir"
 
 def create_input_op_shape(obs, tensor):
@@ -128,7 +130,8 @@ def main():
     parser.add_argument('--base_path',type=str, required=True)
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
     parser.add_argument('--learner_max_epochs', type=int, default = 200) 
-    parser.add_argument('--task', type=int, required=True, help='Task id')
+    parser.add_argument('--task', type=int, required=True, help='Task id') # actor idx
+    parser.add_argument('--mix_env', default=False, help="per training round, use single env or mix envs")
 
     # new parameters
     parser.add_argument('--rp_dir', action='store_true', default=f"rp_dir", help='default is  %(default)s')
@@ -184,31 +187,32 @@ def main():
     random.seed(1234)
     np.random.seed(1234)
 
-    pytorchevent_dir = os.path.join(config.base_path, config.pytorch_logdir, config.job_name+str(config.task) )
+    pytorchevent_dir = os.path.join(config.base_path, config.pytorch_logdir, config.job_name+str(config.task))
     params.dict['train_dir'] = pytorchevent_dir
 
     #TODO: pytorch logger
     if not os.path.exists(pytorchevent_dir):
         os.makedirs(pytorchevent_dir)
         
-
     summary_writer = None
     agent = Agent(s_dim, a_dim, batch_size=params.dict['batch_size'], summary=summary_writer, h1_shape=params.dict['h1_shape'],
                     h2_shape=params.dict['h2_shape'],stddev=params.dict['stddev'],mem_size=params.dict['memsize'],gamma=params.dict['gamma'],
                     lr_c=params.dict['lr_c'],lr_a=params.dict['lr_a'],tau=params.dict['tau'],PER=params.dict['PER'],CDQ=params.dict['CDQ'],
                     LOSS_TYPE=params.dict['LOSS_TYPE'],noise_type=params.dict['noise_type'],
-                    noise_exp=params.dict['noise_exp'], train_dir=CKPT_DIR) # device='cpu'
+                    noise_exp=params.dict['noise_exp'], train_dir=CKPT_DIR, mix_env=config.mix_env, num_actors=params.dict['num_actors']) # device='cpu'
+    # If mix_env, agent only has one rp buffer. Othervise, agent has multiple rp buffers
 
     if is_learner:
         log_file_path = f"{CKPT_DIR}/learner_training_log.txt"
         f_log_file = open(log_file_path, "w")
         
-        if config.load is True and config.eval==False:
-            if os.path.isfile(os.path.join(params.dict['train_dir'], "replay_memory.pkl")):
-                with open(os.path.join(params.dict['train_dir'], "replay_memory.pkl"), 'rb') as fp:
-                    replay_memory = pickle.load(fp)
+        # TODO: no load for now
+        # if config.load is True and config.eval==False:
+        #     if os.path.isfile(os.path.join(params.dict['train_dir'], "replay_memory.pkl")):
+        #         with open(os.path.join(params.dict['train_dir'], "replay_memory.pkl"), 'rb') as fp:
+        #             replay_memory = pickle.load(fp)
 
-        _killsignal = learner_killer(agent.rp_buffer)
+        # _killsignal = learner_killer(agent.rp_buffer)
     else:
         log_file_path = f"{CKPT_DIR}/actor{config.task}_training_log.txt"
         f_log_file = open(log_file_path, "w")
@@ -245,9 +249,6 @@ def main():
             while True:
                 time.sleep(1)
                 continue
-            # while not mon_sess.should_stop():
-                # time.sleep(1)
-                # continue
 
         if config.load is False:
             agent.init_target()
@@ -292,14 +293,20 @@ def main():
                 # print(f"Loading buffer from {actor_rp_file_path}")
                 f_actor_rp = open(actor_rp_file_path, 'rb') # read binary
                 buffer_data = pickle.load(f_actor_rp)
-                for data in buffer_data:
+                for data in buffer_data:     
                     agent.store_experience(data[0], data[1], data[2], data[3], data[4])
 
             print(f"agent's rp length: {agent.rp_buffer.length_buf}")
             # finish reading data from rp
             # update a signal file (learner_finish_reading_rp)
+            # TODO: current strategy: one random seed for all steps here
+            if not config.mix_envs:
+                selected_env = np.random.randint(0, params.dict['num_actors'])
+            else:
+                selected_env = None
+                
             for _ in range(config.num_ac_updates_per_step):
-                agent.train_step()
+                agent.train_step(selected_env)
                 if params.dict['use_hard_target'] == False:
                     # if counter % 5 == 0: #TODO:  update the target function every 5 epochs
                     agent.target_update()
