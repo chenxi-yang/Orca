@@ -227,6 +227,7 @@ def main():
             if params.dict['use_TCP']:
                 shrmem_r = sysv_ipc.SharedMemory(config.mem_r)
                 shrmem_w = sysv_ipc.SharedMemory(config.mem_w)
+                print(f"Shared Memory: {config.mem_r}, {config.mem_w} at actor {i}")
                 env = TCP_Env_Wrapper(env_str, params, config=config, for_init_only=False, shrmem_r=shrmem_r, shrmem_w=shrmem_w,use_normalizer=params.dict['use_normalizer'])
             else:
                 env = GYM_Env_Wrapper(env_str, params)
@@ -272,30 +273,35 @@ def main():
             # if all the actors are finished, then read all the files
             print(f"==== Learner in epoch {counter} ====")
             epoch_start_time = time.time()
+            finished_actor_list = []
             while True:
                 #read the signal file
-                finish_counter = 0
+                finished_actor_list = []
+                actor_i = 0
                 for signal_file_path in signal_file_path_lists:
                     if os.path.exists(signal_file_path) is False:
                         break
                     f_actor_signal = open(signal_file_path, 'r')
                     tmp_signal = f_actor_signal.read()
                     if tmp_signal == '1':
-                        finish_counter += 1
+                        finished_actor_list.append(actor_i)
                     else:
                         break
                     f_actor_signal.close() 
-                if finish_counter == params.dict['num_actors']: # all the actors are finished
+                    actor_i += 1
+                # if there is an actor finishes
+                if len(finished_actor_list) > 0:
                     break
-
+                
             # read all the rp files
             rp_idx = 0
             for actor_rp_file_path in actor_rp_file_path_lists:
                 # print(f"Loading buffer from {actor_rp_file_path}")
-                f_actor_rp = open(actor_rp_file_path, 'rb') # read binary
-                buffer_data = pickle.load(f_actor_rp)
-                for data in buffer_data:     
-                    agent.store_experience(data[0], data[1], data[2], data[3], data[4], idx=rp_idx)
+                if rp_idx in finished_actor_list:
+                    f_actor_rp = open(actor_rp_file_path, 'rb') # read binary
+                    buffer_data = pickle.load(f_actor_rp)
+                    for data in buffer_data:     
+                        agent.store_experience(data[0], data[1], data[2], data[3], data[4], idx=rp_idx)
                 rp_idx += 1
 
             if config.mix_env:
@@ -305,8 +311,9 @@ def main():
             # finish reading data from rp
             # update a signal file (learner_finish_reading_rp)
             # TODO: current strategy: one random seed for all steps here
+            
             if not config.mix_env:
-                selected_env = np.random.randint(0, params.dict['num_actors'])
+                selected_env = random.choice(finished_actor_list)
             else:
                 selected_env = None
                 
@@ -327,9 +334,12 @@ def main():
             agent.save_model()
             # clean up the rp file
             # clean up the signal file
+            signal_idx = 0
             for signal_file_path in signal_file_path_lists:
-                f_actor_signal = open(signal_file_path, 'w')
-                f_actor_signal.close()
+                if signal_idx in finished_actor_list:
+                    f_actor_signal = open(signal_file_path, 'w')
+                    f_actor_signal.close()
+                signal_idx += 1
         with open(finish_file, 'w') as f_finish:
             f_finish.write('1')
         f_finish.close()
@@ -339,7 +349,7 @@ def main():
         # constantly write the replay buffer to the directory
         # start with one actor version
         # store a signal to a signal file (know if all the actors are finished or not) with the actor idx
-        print(f"=========================Actor is up===================")
+        print(f"=========================Actor {config.task} is up===================")
         signal_file_path = os.path.join(CKPT_DIR, "signal_file_" + str(config.task) + ".txt")
         actor_rp_file_path = os.path.join(RP_DIR, "actor_rp_file_" + str(config.task) + "_" + str(training_session) + ".txt")
         # ckpt_path = os.path.join(CKPT_DIR, "model")
@@ -371,7 +381,7 @@ def main():
             if finish_flag:
                 break
 
-            print(f"=========================Actor starts rollout===================")
+            print(f"=========================Actor {config.task} starts rollout===================")
             # load actor's NN from the cp file
             agent.load_model(ckpt_path, evaluate=True)
             actor_rp_f = open(actor_rp_file_path, 'wb') # write binary
@@ -403,8 +413,12 @@ def main():
                 epoch += 1
 
                 step_counter += 1
+                print(f"---- actor {config.task} ---- start env step")
                 s1, r, terminal, error_code = env.step(a, eval_=config.eval)
-
+                print(f"---- actor {config.task} ---- finish env step")
+                
+                print(f"Results of actor {config.task}: {s1}, {r}, {terminal}, {error_code}")
+                
                 if error_code == True:
                     s1_rec_buffer = np.concatenate((s0_rec_buffer[params.dict['state_dim']:], s1) )
 
@@ -440,7 +454,9 @@ def main():
                 
                 if config.actor_max_epochs == 200:
                     if (epoch% 199 == 0):
+                        print(f" ==========================Actor {config.task} starts evaluation===================")
                         eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
+                        print(f" ==========================Actor {config.task} finishes evaluation===================")
                 elif config.actor_max_epochs == 500:
                     if (epoch% 499 == 0):
                         eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
@@ -465,7 +481,7 @@ def main():
             signal_f.write(f"1") # represents that the actor is done
             signal_f.close()
             
-            print(f"====== one actor step finishes ======")
+            print(f"====== Actor {config.task} one step finishes ======")
         
         
 

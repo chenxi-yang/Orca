@@ -34,15 +34,16 @@ $path/orca-server-mahimahi $port $path ${period} ${first_time} $scheme $id $down
 
 #sudo killall -s15 python
 #sleep 10
-echo "Finished."
+echo "Finished. actor $id$"
 if [ ${first_time} -eq 1 ] || [ ${first_time} -eq 2 ] || [ ${first_time} -eq 4 ]
 then
     echo "Doing Some Analysis ..."
     out="sum-${log}.tr"
     echo $log >> $path/log/$out
-    $path/mm-thr 500 $path/log/down-${log} 1>tmp 2>res_tmp
+    $path/mm-thr 500 $path/log/down-${log} 1>tmp-${id} 2>res_tmp-${id}
     cat res_tmp >>$path/log/$out
     echo "------------------------------" >> $path/log/$out
+    mv "tmp-$id" "tmp-$id.svg"
     # rm *tmp
 fi
 echo "Done"

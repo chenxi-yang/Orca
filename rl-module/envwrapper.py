@@ -164,6 +164,8 @@ class TCP_Env_Wrapper(object):
     def get_state(self, evaluation=False):
         succeed = False
         error_cnt=0
+        
+        print(f"Try get state from {self.shrmem_r.key} {self.shrmem_w.key}")
         while(1):
         # Read value from shared memory
             try:
@@ -210,6 +212,8 @@ class TCP_Env_Wrapper(object):
 
             sleep(0.01)
 
+        print(f"Got state from {self.shrmem_r.key} {self.shrmem_w.key}")
+        
         error_cnt=0
         if succeed == False:
             raise ValueError('read Nothing new from shrmem for a long time')
@@ -311,8 +315,10 @@ class TCP_Env_Wrapper(object):
             state=np.append(state,[delay_metric])
 
             self.prev_rid = rid
+            print(f"End of get state in first if")
             return state, d, reward, True
         else:
+            print(f"End of get state in second if")
             return state, 0.0, reward, False
 
     def map_action(self, action):
@@ -337,6 +343,7 @@ class TCP_Env_Wrapper(object):
 
     def step(self, action, eval_=False):
         s1, delay_, rew0, error_code  = self.get_state(evaluation=eval_)
+        print(f"finish this step")
 
         return s1, rew0, False, error_code
 

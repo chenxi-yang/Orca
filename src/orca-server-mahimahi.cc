@@ -145,13 +145,14 @@ void start_server(int flow_num, int client_port)
         }
     }
 
+
     char container_cmd[500];
     sprintf(container_cmd,"sudo -u `whoami` %s/client $MAHIMAHI_BASE 1 %d",path,client_port);
     char cmd[1000];
     char final_cmd[1000];
     //TODO: add mm-loss here
 
-    if (first_time==4 || first_time==2)
+    if (first_time == 1 || first_time==4 || first_time==2)
         sprintf(cmd, "sudo -u `whoami`   mm-delay %d mm-link %s/../traces/%s %s/../traces/%s --downlink-log=%s/log/down-%s --uplink-queue=droptail --uplink-queue-args=\"packets=%d\" --downlink-queue=droptail --downlink-queue-args=\"packets=%d\" -- sh -c \'%s\' &",delay_ms,path,uplink,path,downlink,path,log_file,qsize,qsize,container_cmd);
     else
         sprintf(cmd, "sudo -u `whoami`  mm-delay %d mm-link %s/../traces/%s %s/../traces/%s --uplink-queue=droptail --uplink-queue-args=\"packets=%d\" --downlink-queue=droptail --downlink-queue-args=\"packets=%d\" -- sh -c \'%s\' &",delay_ms,path,uplink,path,downlink,qsize,qsize,container_cmd);
