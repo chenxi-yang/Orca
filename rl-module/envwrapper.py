@@ -169,7 +169,9 @@ class TCP_Env_Wrapper(object):
         while(1):
         # Read value from shared memory
             try:
+                print(f"read from {self.shrmem_r.key} {self.shrmem_w.key}")
                 memory_value = self.shrmem_r.read()
+                print(f"finish reading from {self.shrmem_r.key} {self.shrmem_w.key}")
 
             except sysv_ipc.ExistentialError:
                 print("No shared memory Now, python ends gracefully :)")
@@ -343,7 +345,7 @@ class TCP_Env_Wrapper(object):
 
     def step(self, action, eval_=False):
         s1, delay_, rew0, error_code  = self.get_state(evaluation=eval_)
-        print(f"finish this step")
+        print(f"finish this step: {s1, delay_, rew0, error_code}")
 
         return s1, rew0, False, error_code
 
