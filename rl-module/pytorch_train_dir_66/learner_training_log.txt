@@ -1,0 +1,4 @@
+Epoch: 0, Loss/learner's actor_loss: 0.2354068011045456, time: 19.96118450164795
+Epoch: 1, Loss/learner's actor_loss: 0.37063857913017273, time: 5.545574903488159
+Epoch: 2, Loss/learner's actor_loss: 0.42455482482910156, time: 8.95549750328064
+Epoch: 3, Loss/learner's actor_loss: 0.3435015082359314, time: 5.413627862930298
