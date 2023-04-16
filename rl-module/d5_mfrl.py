@@ -1,5 +1,5 @@
 '''
-pytorch Orca with MBPO(Orca's AC version)
+pytorch Orca
 '''
 
 import threading
@@ -128,7 +128,7 @@ def main():
     parser.add_argument('--mem_w', type=int, default = 12345)
     parser.add_argument('--base_path',type=str, required=True)
     parser.add_argument('--job_name', type=str, choices=['learner', 'actor'], required=True, help='Job name: either {\'learner\', actor}')
-    parser.add_argument('--learner_num_steps', type=int, default = 200) 
+    parser.add_argument('--learner_max_epochs', type=int, default = 200) 
     parser.add_argument('--task', type=int, required=True, help='Task id') # actor idx
     parser.add_argument('--training_session', type=int, default=0, help='Training session id')
     parser.add_argument('--mix_env', default=False, help="per training round, use single env or mix envs")
@@ -268,14 +268,12 @@ def main():
                 pass
             f_actor_signal.close()
 
-        while counter < config.learner_num_steps: # params.dict['max_epochs']: # 1m epochs
+        while counter < config.learner_max_epochs: # params.dict['max_epochs']: # 1m epochs
             # check the signal file
             # if all the actors are finished, then read all the files
             print(f"==== Learner in epoch {counter} ====")
             epoch_start_time = time.time()
             finished_actor_list = []
-
-            # Learner: listen to the signal from environment interactions
             while True:
                 #read the signal file
                 finished_actor_list = []
@@ -291,11 +289,11 @@ def main():
                         break
                     f_actor_signal.close() 
                     actor_i += 1
-                # If there is an actor finishes, jump out and select from all finished actor RBs
+                # if there is an actor finishes
                 if len(finished_actor_list) > 0:
                     break
                 
-            # read all the available rp files
+            # read all the rp files
             rp_idx = 0
             for actor_rp_file_path in actor_rp_file_path_lists:
                 # print(f"Loading buffer from {actor_rp_file_path}")
@@ -318,45 +316,7 @@ def main():
                 selected_env = random.choice(finished_actor_list)
             else:
                 selected_env = None
-            
-            # Do the real training step
-            rollout_length = 20 # hyperparameter of MBPO
-            effective_model_rollouts_per_step = 400
-            freq_train_model = 200
-            epoch_length = 60 # length of one-time TCP interaction
-            num_ac_updates_per_step = 5 # number of updates to the learner
-            sac_updates_every_steps = 1
-            ac_batch_size = 256
-
-            ac_buffer_capacity = rollout_length * effective_model_rollouts_per_step * freq_train_model
-            ac_buffer_capacity *= 1 # hyperparameter
-            # TODO: omit for now
-            # ac_buffer = maybe_replace_ac_buffer(
-            #     ac_buffer,
-            #     ac_buffer_capacity,
-            # )
-
-            obs, done = None, False
-            for steps_epoch in range(epoch_length):
-                # I have the buffer now
-                # list of models
-                if (env_steps + 1) % freq_train_model == 0:
-                # train model
-                # train_model_save_model_and_data()
-                # train the selected model
-                # roll_out_model_and_populate_ac_buffer # ac_buffer is the buffer for model rollout data
-                for _ in range(num_ac_updates_per_step):
-                    which_buffer = ac_buffer # always using the ac_buffer for now
-                    if (env_steps + 1) % sac_updates_every_steps != 0 or len(which_buffer) < ac_batch_size:
-                        break
                 
-                    policy_loss = agent.update_parameters(
-                        which_buffer
-                    )
-                # TODO: keep the which buffer on the agent class
-
-
-
             for _ in range(config.num_ac_updates_per_step):
                 agent.train_step(selected_env)
                 if params.dict['use_hard_target'] == False:
