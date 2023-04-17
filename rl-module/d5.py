@@ -268,10 +268,13 @@ def main():
                 pass
             f_actor_signal.close()
 
-        while counter < config.learner_num_steps: # params.dict['max_epochs']: # 1m epochs
+        env_steps = 0
+        epochs = 0
+
+        while env_steps < config.learner_num_steps: # params.dict['max_epochs']: # 1m epochs
             # check the signal file
             # if all the actors are finished, then read all the files
-            print(f"==== Learner in epoch {counter} ====")
+            print(f"==== Learner in Epoch {epochs}; Step {env_steps} ====")
             epoch_start_time = time.time()
             finished_actor_list = []
 
@@ -350,21 +353,22 @@ def main():
                     if (env_steps + 1) % sac_updates_every_steps != 0 or len(which_buffer) < ac_batch_size:
                         break
                 
-                    policy_loss = agent.update_parameters(
-                        which_buffer
-                    )
-                # TODO: keep the which buffer on the agent class
-
-
-
-            for _ in range(config.num_ac_updates_per_step):
-                agent.train_step(selected_env)
-                if params.dict['use_hard_target'] == False:
-                    # if counter % 5 == 0: #TODO:  update the target function every 5 epochs
-                    agent.target_update()
-                else:
-                    if counter % params.dict['hard_target'] == 0 :
-                        agent.target_update() # hard target update
+                    agent.train_step(selected_env)
+                    if params.dict['use_hard_target'] == False:
+                        # if counter % 5 == 0: #TODO:  update the target function every 5 epochs
+                        agent.target_update()
+                    else:
+                        if counter % params.dict['hard_target'] == 0 :
+                            agent.target_update() # hard target update
+                            
+            # for _ in range(config.num_ac_updates_per_step):
+            #     agent.train_step(selected_env)
+            #     if params.dict['use_hard_target'] == False:
+            #         # if counter % 5 == 0: #TODO:  update the target function every 5 epochs
+            #         agent.target_update()
+            #     else:
+            #         if counter % params.dict['hard_target'] == 0 :
+            #             agent.target_update() # hard target update
             print(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}, time: {time.time() - epoch_start_time}")
             f_log_file.write(f"Epoch: {counter}, Loss/learner's actor_loss: {agent.a_loss}, time: {time.time() - epoch_start_time}\n")
             f_log_file.flush()

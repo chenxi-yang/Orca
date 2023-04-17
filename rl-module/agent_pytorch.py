@@ -175,6 +175,10 @@ class Agent():
             else:
                 for i in range(num_actors):
                     self.rp_buffer_list.append(Prioritized_ReplayBuffer(int(mem_size/num_actors), s_dim, a_dim, batch_size=batch_size, alpha=alpha))
+            for i in range(num_actors):
+                self.dynamics_model_list.append(
+                    
+                )
         else:
             if not self.PER:
                 self.rp_buffer = ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
