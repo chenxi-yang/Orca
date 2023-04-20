@@ -161,6 +161,17 @@ class Agent():
         # self.is_training = tf.placeholder(tf.bool, name='Actor_is_training')
         # self.action = tf.placeholder(tf.float32, shape=[None, a_dim], name='action')
 
+        # TODO:
+        # add sac_buffer
+        # add the replay_buffer (keep the same)
+        # contain a list of models (actor only has one model, the learner has multiple models)
+        # each learner has a list of models
+        # Learner
+        # Make the decision about which buffer/environment to use
+        # Then add that environment's sac buffer to the 
+        # in original loss: just sample from the replay buffer
+        # 
+
         self.noise_type = noise_type
         self.noise_exp = noise_exp
         self.action_range = action_range
