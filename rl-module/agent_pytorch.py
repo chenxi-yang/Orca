@@ -35,13 +35,17 @@ NSTEP = 0.3
 
 # TODO: Inference of the networks should add model.eval()
 
-
+from common import 
+    (create_one_dim_tr_model,
+    train_model_and_save_model_and_data,
+    )
+import models
 from utils import OU_Noise, ReplayBuffer, G_Noise, Prioritized_ReplayBuffer
+
 
 def create_input_op_shape(obs, tensor):
     input_shape = [x or -1 for x in tensor.shape.as_list()]
     return np.reshape(obs, input_shape)
-
 
 # build the actor network
 class ActorNetwork(nn.Module):
@@ -120,20 +124,14 @@ class CriticNetwork(nn.Module):
 
 class Agent():
     def __init__(self, s_dim, a_dim, h1_shape, h2_shape, gamma=0.995, batch_size=8, lr_a=1e-4, lr_c=1e-3, tau=1e-3, mem_size=1e5, action_scale=1.0, action_range=(-1.0, 1.0),
-                noise_type=3, noise_exp=50000, summary=None,stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu',
-                train_dir=None, mix_env=None, num_actors=None):
-        
-        self.mix_env = mix_env
-        
+                noise_type=3, noise_exp=50000, stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu',
+                train_dir=None, num_actors=None):
+    
         self.PER = PER
         self.CDQ = CDQ # True by default
         self.LOSS_TYPE = LOSS_TYPE
-        # TODO: update
-        # self.LOSS_TYPE = 'MSE'
-        # self.lr_a = lr_a
-        # self.lr_c = lr_c
 
-        self.lr_a = lr_a / 5
+        self.lr_a = lr_a / 5 #TODO. important for convergence for now
         self.lr_c = lr_c / 5
 
         self.s_dim = s_dim
@@ -147,19 +145,7 @@ class Agent():
         self.train_dir = f"{train_dir}/trained_model" #'./rl-module/pytorch_train_dir/trained_model'
 
         self.step_epochs = 0
-        # TODO, recheck the usage of the global steps
         self.global_step = 0
-        # TODO 
-        # TODO
-        # self.step_epochs = tf.Variable(0, trainable=False, name='epoch')
-        # self.global_step = tf.train.get_or_create_global_step(graph=None)
-
-        # TODO: continue
-        # TODO: create the input
-        # self.s0 = tf.placeholder(tf.float32, shape=[None, self.s_dim], name='s0')
-        # self.s1 = tf.placeholder(tf.float32, shape=[None, self.s_dim], name='s1')
-        # self.is_training = tf.placeholder(tf.bool, name='Actor_is_training')
-        # self.action = tf.placeholder(tf.float32, shape=[None, a_dim], name='action')
 
         # TODO:
         # add sac_buffer
@@ -170,7 +156,7 @@ class Agent():
         # Make the decision about which buffer/environment to use
         # Then add that environment's sac buffer to the 
         # in original loss: just sample from the replay buffer
-        # 
+
 
         self.noise_type = noise_type
         self.noise_exp = noise_exp
@@ -178,24 +164,41 @@ class Agent():
         self.h1_shape=h1_shape
         self.h2_shape=h2_shape
         self.stddev=stddev
-        if not self.mix_env:
-            self.rp_buffer_list = []
-            if not self.PER:
-                for i in range(num_actors):
-                    self.rp_buffer_list.append(ReplayBuffer(int(mem_size/num_actors), s_dim, a_dim, batch_size=batch_size))
-            else:
-                for i in range(num_actors):
-                    self.rp_buffer_list.append(Prioritized_ReplayBuffer(int(mem_size/num_actors), s_dim, a_dim, batch_size=batch_size, alpha=alpha))
-            for i in range(num_actors):
-                self.dynamics_model_list.append(
-                    
-                )
-        else:
-            if not self.PER:
-                self.rp_buffer = ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
-            else:
-                self.rp_buffer = Prioritized_ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size, alpha=alpha)
-
+        
+        # not PER
+        self.rp_buffer = create_replay_buffer(
+            int(mem_size),
+            (s_dim,),
+            (a_dim,),
+            load_dir=self.train_dir+'_rp',
+        )
+        
+        # ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
+        self.model_rp_buffer = create_replay_buffer(
+            int(mem_size),
+            (s_dim,),
+            (a_dim,),
+            load_dir=self.train_dir+'_model_rp',
+        )
+        # ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
+        self.rp_buffer_batch = batch_size
+        
+        self.dynamics_model = create_one_dim_tr_model(
+            self.s_dim,
+            self.a_dim,
+            model_dir=f"{train_dir}/trained_model",
+            model_normalization=True, # TODO: set to False?
+        )  
+        self.model_env = models.ModelEnv(
+            # env obs/act space
+            self.dynamics_model,
+        )
+        self.model_trainer = models.ModelTrainer(
+            self.dynamics_model,
+            optim_lr=1e-3, # TODO
+            weight_decay=1e-4, # TODO
+        )
+        
         if noise_type == 1:
             self.actor_noise = OU_Noise(mu=np.zeros(a_dim), sigma=float(self.stddev) * np.ones(a_dim), dt=1, exp=self.noise_exp)
         elif noise_type == 2:
@@ -233,14 +236,9 @@ class Agent():
         self.y2 = None
         self.importance = None
         self.td_error = None
-
-        # todo: remove these placeholder
-        # self.td_error = self.critic_out - self.y
-
-        # todo: pytorch logger
-        # self.summary_writer = summary
         
         self.a_loss = None
+
 
     def train_actor(self, s0, is_training=True):
         # todo: omit the global step for now
@@ -307,26 +305,10 @@ class Agent():
         # total_c_loss.backward()
         # self.critic_optim_all.step()
 
-    # todo: add pytorch logger
-    # def create_tf_summary(self):
-    #     if self.CDQ:
-    #         tf.summary.scalar('Loss/critic_loss:', self.c_loss)
-    #         tf.summary.scalar('Loss/critic_loss_2:', self.c_loss2)
-    #     else:
-    #         tf.summary.scalar('Loss/critic_loss:', self.critic_loss)
-
-    #     tf.summary.scalar('Loss/actor_loss:', self.a_loss)
-
-    #     self.summary_op = tf.summary.merge_all()
-
     def init_target(self):
         self.hard_update(self.target_actor, self.actor)
         self.hard_update(self.target_critic, self.critic)
         self.hard_update(self.target_critic2, self.critic2)
-
-    # NO use
-    # def assign_sess(self, sess):
-    #     self.sess = sess
     
     def soft_update(self, target, source, tau):
         for target_param, param in zip(target.parameters(), source.parameters()):
@@ -340,10 +322,6 @@ class Agent():
         self.soft_update(self.target_actor, self.actor, self.tau)
         self.soft_update(self.target_critic, self.critic, self.tau)
         self.soft_update(self.target_critic2, self.critic2, self.tau)
-
-    # TODO: no use?
-    # def actor_clone_update(self):
-    #     self.sess.run(self.actor_clone_update_op)
 
     def get_action(self, s, use_noise=True):
         with torch.no_grad(): # is_training=False
@@ -370,32 +348,23 @@ class Agent():
         critic_out = self.critic(s0, actor_out)
         return critic_out
 
-    def store_experience(self, s0, a, r, s1, terminal, idx=None):
-        # if different env uses different environments
-        if not self.mix_env:
-            self.rp_buffer_list[idx].store(s0, a, r, s1, terminal)
-        else:
-            self.rp_buffer.store(s0, a, r, s1, terminal)
+    def store_experience(self, s0, a, r, s1, terminal):
+        self.rp_buffer.add(s0, a, r, s1, terminal)
 
-    def store_many_experience(self, s0, a, r, s1, terminal, length, idx=None):
-        if not self.mix_env:
-            if self.PER:
-                for i in range(length):
-                    self.rp_buffer_list[idx].store(s0[i], a[i], r[i], s1[i], terminal[i])
-            else:
-                self.rp_buffer_list[idx].store_many(s0, a, r, s1, terminal, length)
-        else:
-            if self.PER:
-                for i in range(length):
-                    self.rp_buffer.store(s0[i], a[i], r[i], s1[i], terminal[i])
-            else:
-                self.rp_buffer.store_many(s0, a, r, s1, terminal, length)
+    def store_many_experience(self, s0, a, r, s1, terminal, length):
+        self.rp_buffer.add_batch(s0, a, r, s1, terminal, length)
+    
+    def model_store_experience(self, s0, a, r, s1, terminal):
+        self.model_rp_buffer.add(s0, a, r, s1, terminal)
 
-    def sample_experince(self, idx=None):
-        if not self.mix_env:
-            return self.rp_buffer_list[idx].sample()
-        else:
-            return self.rp_buffer.sample()
+    def model_store_many_experience(self, s0, a, r, s1, terminal, length):
+        self.model_rp_buffer.add_batch(s0, a, r, s1, terminal, length)
+
+    def sample_experince(self):
+        return self.rp_buffer.sample(self.rp_buffer_batch)
+    
+    def sample_model_experince(self):
+        return self.model_rp_buffer.sample(self.rp_buffer_batch)
 
     def train_step_td(self):
         return None
@@ -408,22 +377,13 @@ class Agent():
             #     new_priorities = np.abs(np.squeeze(td_errors)) + 1e-6
             #     self.rp_buffer.update_priorities(idxes, new_priorities)
         else:
-            if not self.mix_env:
-                (
-                    s0_batch,
-                    action_batch,
-                    reward_batch,
-                    s1_batch,
-                    terminal_batch,
-                ) = self.rp_buffer_list[idx].sample() 
-            else:
-                (
-                    s0_batch,
-                    action_batch,
-                    reward_batch,
-                    s1_batch,
-                    terminal_batch,
-                ) = self.rp_buffer.sample() 
+            (
+                s0_batch,
+                action_batch,
+                reward_batch,
+                s1_batch,
+                terminal_batch,
+            ) = self.model_rp_buffer.sample()  # only use the model buffer
         
         # print(f"s0_batch.shape: {s0_batch.shape}")
         s0_batch = torch.FloatTensor(s0_batch).to(self.device)
@@ -443,21 +403,10 @@ class Agent():
         # ---------------------- optimize actor ----------------------
         self.train_actor(s0_batch, is_training=True)
 
-        # TODO: torch distributed logger
-        # summary, step = self.sess.run([self.summary_op, self.global_step], feed_dict=fd)
-        # self.summary_writer.add_summary(summary, global_step=step)
-
-    # TODO: torch distributed logger
-    # def log_tf(self, val, tag=None, step_counter=0):
-    #     summary = tf.Summary()
-    #     summary.value.add(tag= tag, simple_value=val)
-    #     self.summary_writer.add_summary(summary, step_counter)
-
     def save_model(self, step=None):
         if not os.path.exists(self.train_dir):
             os.makedirs(self.train_dir)
         ckpt_path = f"{self.train_dir}/model.pth"
-        # print("Saving models to {}".format(ckpt_path))
         torch.save(
             {
                 "actor_state_dict": self.actor.state_dict(),
@@ -507,3 +456,60 @@ class Agent():
 
     def get_step_epochs(self):
         return self.step_epochs
+    
+    def rollout_model_and_populate_model_rp_buffer(
+        self,
+        model_rp_buffer,
+        rollout_horizon,
+        ):
+        rollout_batch_size = self.rollout_batch_size
+        batch = self.rp_buffer.sample(rollout_batch_size)
+        # model input: 2*state_dim, output: state_dim
+        # use 1 state_dim for now
+        initial_obs = batch.astuple() # TODO
+        # TODO: initial_obs concatenate with itself
+
+        model_state = self.model_env.reset(
+            initial_obs_batch=cast(np.ndarray, initial_obs) if not isinstance(initial_obs, domain.box.Box) else initial_obs,
+            return_as_np=True,
+        )
+        accum_dones = np.zeros(initial_obs.shape[0], dtype=bool)
+        obs = initial_obs
+        
+        s0_rec_buffer = np.zeros([self.s_dim])
+        s0_rec_buffer[-1*params.dict['state_dim']:] = obs
+        s1_rec_buffer = np.zeros([s_dim])
+        a = agent.get_action(s0_rec_buffer, True)
+        a = a[0][0]
+
+        new_model_buffer_data_list = []
+        for i in range(rollout_horizon - 1):
+            s1, r, terminal, model_state = self.model_env.step(
+                a, 
+                model_state,
+                sample=True
+            )
+            s1_rec_buffer = np.concatenate(
+                (s0_rec_buffer[self.s_dim:], s1))
+            a1 = agent.get_action(s1_rec_buffer, True)
+            a1 = a1[0][0]
+            fd = (
+                s0_rec_buffer,
+                a,
+                np.array([r]),
+                s1_rec_buffer,
+                np.array([terminal], np.float),
+            )
+            new_model_buffer_data_list.append(fd)
+
+            s0 = s1
+            a = a1
+            s0_rec_buffer = s1_rec_buffer
+        
+        return new_model_buffer_data_list
+
+
+
+
+                    
+            

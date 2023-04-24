@@ -195,20 +195,23 @@ class ReplayBuffer:
             self.length_buf = self.ptr
 
 
-    def sample(self):
+    def sample(self, set_batch_size=None):
         import random
-        if self.batch_size < self.length_buf :
+        if set_batch_size is None:
+            batch_size = self.batch_size
+        else:
+            batch_size = set_batch_size
+        if batch_size < self.length_buf :
             start_index = int(self.length_buf*random.random())
-            if start_index + self.batch_size >= self.length_buf:
+            if start_index + batch_size >= self.length_buf:
                 arr1 = list(range(start_index, self.length_buf))
-                arr2 = list(range(0, self.batch_size- len(arr1)))
+                arr2 = list(range(0, batch_size- len(arr1)))
                 index = arr1 + arr2
             else:
-                index = list(range(start_index, start_index+self.batch_size))
+                index = list(range(start_index, start_index+batch_size))
 
         else:
             index = list(range(0, self.length_buf))
-
 
         s0 = self.s0_buf[index]
         a = self.a_buf[index]
