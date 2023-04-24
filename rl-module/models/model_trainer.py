@@ -12,8 +12,7 @@ import torch
 import tqdm
 from torch import optim as optim
 
-from vrl.util.logger import Logger
-from vrl.util.replay_buffer import BootstrapIterator, TransitionIterator
+from ..replay_buffer import BootstrapIterator, TransitionIterator
 
 from .model import Model
 
@@ -48,19 +47,9 @@ class ModelTrainer:
         optim_lr: float = 1e-4,
         weight_decay: float = 1e-5,
         optim_eps: float = 1e-8,
-        logger: Optional[Logger] = None,
     ):
         self.model = model
         self._train_iteration = 0
-
-        self.logger = logger
-        if self.logger:
-            self.logger.register_group(
-                self._LOG_GROUP_NAME,
-                MODEL_LOG_FORMAT,
-                color="blue",
-                dump_frequency=1,
-            )
 
         self.optimizer = optim.Adam(
             self.model.parameters(),
@@ -185,23 +174,6 @@ class ModelTrainer:
                     epochs_since_update += 1
                 model_val_score = eval_score.mean()
 
-            if self.logger and not silent:
-                self.logger.log_data(
-                    self._LOG_GROUP_NAME,
-                    {
-                        "iteration": self._train_iteration,
-                        "epoch": epoch,
-                        "train_dataset_size": dataset_train.num_stored,
-                        "val_dataset_size": dataset_val.num_stored
-                        if dataset_val is not None
-                        else 0,
-                        "model_loss": total_avg_loss,
-                        "model_val_score": model_val_score,
-                        "model_best_val_score": best_val_score.mean()
-                        if best_val_score is not None
-                        else 0,
-                    },
-                )
             if callback:
                 callback(
                     self.model,

@@ -1,19 +1,19 @@
+import pathlib
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 import numpy as np
 import models
-from .replay_buffer import (
+from replay_buffer import (
     BootstrapIterator,
     ReplayBuffer,
     SequenceTransitionIterator,
     SequenceTransitionSampler,
-    SymbolicReplayBuffer,
     TransitionIterator,
 )
 
 
 def create_one_dim_tr_model(
-    cfg,
-    s_dim=7,
-    a_dim=1,
+    s_dim,
+    a_dim,
     model_dir,
     model_normalization,
 ):
@@ -125,7 +125,6 @@ def create_replay_buffer(
     collect_trajectories: bool = False,
     rng: Optional[np.random.Generator] = None,
 ) -> ReplayBuffer:
-    dataset_size = 
     # print(f"dataset_size: {dataset_size}")
     dataset_size = datasize
 

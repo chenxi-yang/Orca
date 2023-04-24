@@ -1,4 +1,2 @@
-Average capacity: 44.39 Mbits/s
-Average throughput: 43.09 Mbits/s (97.1% utilization)
-95th percentile per-packet queueing delay: 73 ms
-Average per packet delay: 33 ms
+Can't open /newhome/cyang/Orca/rl-module/log/down-orca-cubic-constant-mbps-1-wired48-10-20-160: No such file or directory at /newhome/cyang/Orca/rl-module/mm-thr line 42.
+Must have at least one event at /newhome/cyang/Orca/rl-module/mm-thr line 150.

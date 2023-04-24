@@ -8,7 +8,7 @@ import gym
 import numpy as np
 import torch
 
-import vrl.util.types
+import types
 
 from . import Model
 

@@ -94,7 +94,7 @@ def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffe
 def write_rp(f, fd_list): # actor writes one line of replay buffer to the file
     pickle.dump(fd_list, f)
 
-def read_config():
+def read_configs():
     '''
     read the input configs for distributed training
     '''
@@ -300,9 +300,9 @@ def core():
                 agent.train_step()
                 if params.dict['use_hard_target'] == False:
                         agent.target_update()
-                    else:
-                        if counter % params.dict['hard_target'] == 0 :
-                            agent.target_update()
+                else:
+                    if counter % params.dict['hard_target'] == 0 :
+                        agent.target_update()
                 
 
             # finish the training

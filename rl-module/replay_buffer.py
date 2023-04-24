@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Sequence, Sized, Tuple, Type, Union
 import numpy as np
 import torch
 
-from .models.types import TransitionBatch
+from models.types import TransitionBatch
 
 
 def _consolidate_batches(batches: Sequence[TransitionBatch]) -> TransitionBatch:

@@ -32,11 +32,11 @@
     "lr_c": 0.001,
     "tau": 0.001,
     "gamma": 0.995,
-    "memsize": 100000,
+    "memsize": 50000,
     "tb_interval": 1,
     "ckptdir": null,
     "scheme": null,
-    "num_actors": 2,
+    "num_actors": 1,
     "logdir": "train_dir",
     "learner_ip": "127.0.0.1:33330",
     "actor_ip": [

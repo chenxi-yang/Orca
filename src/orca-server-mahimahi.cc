@@ -192,16 +192,16 @@ void start_server(int flow_num, int client_port)
         return;
     } 
     if (first_time==1){
-        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
+        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/main.py --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
         DBGPRINT(0,0,"Starting RL Module (Without load) ...\n%s",cmd);
     }
     else if (first_time==2 || first_time==4){
-        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --tb_interval=1 --base_path=%s --load --eval --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
+        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/main.py --tb_interval=1 --base_path=%s --load --eval --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
         DBGPRINT(0,0,"Starting RL Module (No learning) ...\n%s",cmd);
     }
     else
     {
-        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/d5.py --load --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
+        sprintf(cmd,"/users/`whoami`/venv/bin/python %s/main.py --load --tb_interval=1 --base_path=%s --task=%d --job_name=actor --train_dir=%s  --mem_r=%d --mem_w=%d --training_session=%d &",path,path,actor_id,path,(int)key,(int)key_rl, training_session);
         DBGPRINT(0,0,"Starting RL Module (With load) ...\n%s",cmd);
     }
  

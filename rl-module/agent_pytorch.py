@@ -35,9 +35,10 @@ NSTEP = 0.3
 
 # TODO: Inference of the networks should add model.eval()
 
-from common import 
-    (create_one_dim_tr_model,
+from common import (
+    create_one_dim_tr_model,
     train_model_and_save_model_and_data,
+    create_replay_buffer,
     )
 import models
 from utils import OU_Noise, ReplayBuffer, G_Noise, Prioritized_ReplayBuffer
