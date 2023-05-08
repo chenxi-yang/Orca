@@ -21,7 +21,7 @@ def create_one_dim_tr_model(
     Creates a 1-D transition reward model from a given configuration.
     """
     # TODO: use fixed configs for now
-    in_size = s_dim + act_dim
+    in_size = s_dim + a_dim
     out_size = s_dim + 1 # state + reward
 
     model = models.SymGaussianMLP(

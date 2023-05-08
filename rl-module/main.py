@@ -30,7 +30,7 @@ import torch
 RP_DIR = f"./rl-module/rp_dir"
 
 
-def evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file):
+def evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f_log_file):
     score_list = []
 
     eval_times = 1
@@ -191,7 +191,9 @@ def core():
                     noise_type=params.dict['noise_type'],
                     noise_exp=params.dict['noise_exp'], 
                     train_dir=CKPT_DIR, 
-                    num_actors=params.dict['num_actors'])
+                    is_learner=is_learner,
+                    actor_id=config.task,
+                    )
 
     if is_learner:
         log_file_path = f"{CKPT_DIR}/learner_log.txt"
@@ -276,7 +278,7 @@ def core():
             # clear the selected actor's model_rp
             open(selected_actor_model_rp_file_path, 'w').close()
 
-            ac_buffer_capacity = rollout_length * effective_model_rollouts_per_step * freq_train_model
+            ac_buffer_capacity = rollout_length * effective_model_rollouts_per_steps * freq_train_model
 
             # agent.model_rp_buffer, agent.dynamics_model
             for _ in range(num_sac_updates_per_step):
@@ -301,9 +303,10 @@ def core():
                 if params.dict['use_hard_target'] == False:
                         agent.target_update()
                 else:
-                    if counter % params.dict['hard_target'] == 0 :
+                    if epochs % params.dict['hard_target'] == 0 :
                         agent.target_update()
-                
+                env_steps += 1
+            
 
             # finish the training
             agent.save_model()
@@ -378,12 +381,14 @@ def core():
                 break
 
             print(f"=========================Actor {config.task} epoch {actor_epoch} starts=========================")
+            start_time = time.time()
             # load ckpt model
             agent.load_model(ckpt_path, evaluate=True)
 
             # take action to get rp_buffer
             # train model
             # take action to get model_rp_buffer
+            #TODO:
             model_rp_buffer = maybe_replace_model_rp_buffer()
 
             # take step_epoch actions
@@ -434,7 +439,7 @@ def core():
 
                 if steps_epoch == epoch_length - 1:
                     print(f" ==========================Actor {config.task} starts evaluation===================")
-                    eval_step_counter = evaluate_TCP(env, agent, epoch, summary_writer, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
+                    eval_step_counter = evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
                     print(f" ==========================Actor {config.task} finishes evaluation===================")
             
             # write the rp_buffer
@@ -447,7 +452,9 @@ def core():
             agent.train_model_and_save_model_and_data()
 
             # rollout model and populate the model_rp_buffer
-            new_model_buffer_data_list = agent.rollout_model_and_populate_model_rp_buffer(rollout_length)
+            new_model_buffer_data_list = agent.rollout_model_and_populate_model_rp_buffer(
+                rollout_length
+                )
 
             # write the model_rp_buffer
             # TODO: distinguish whether append or write, but now for the one actor case, always write
@@ -459,8 +466,8 @@ def core():
             signal_f.write(f"1")
             signal_f.close()
 
-            print(f"total time for actor-{config.task}: {time.time() - start}")
-            f_log_file.write(f"total time for actor-{config.task}: {time.time() - start}\n")
+            print(f"total time for actor-{config.task}: {time.time() - start_time}")
+            f_log_file.write(f"total time for actor-{config.task}: {time.time() - start_time}\n")
             f_log_file.flush()
 
             print(f"====== Actor {config.task} one step finishes ======")

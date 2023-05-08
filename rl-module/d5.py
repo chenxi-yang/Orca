@@ -344,8 +344,11 @@ def main():
                 # I have the buffer now
                 # list of models
                 if (env_steps + 1) % freq_train_model == 0:
-                # train model
-                # train_model_save_model_and_data()
+                    # train model with the model_rp_buffer
+                    # save at the model_rp dir
+                    agent.train_model_save_model_and_data(
+                        
+                    )
                 # train the selected model
                 # roll_out_model_and_populate_ac_buffer # ac_buffer is the buffer for model rollout data
                 for _ in range(num_ac_updates_per_step):

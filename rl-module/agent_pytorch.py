@@ -23,6 +23,7 @@ import torch.nn as nn
 import torch
 from torch.optim import Adam
 import itertools
+from typing import cast
 
 # import tensorflow as tf
 import numpy as np
@@ -126,7 +127,7 @@ class CriticNetwork(nn.Module):
 class Agent():
     def __init__(self, s_dim, a_dim, h1_shape, h2_shape, gamma=0.995, batch_size=8, lr_a=1e-4, lr_c=1e-3, tau=1e-3, mem_size=1e5, action_scale=1.0, action_range=(-1.0, 1.0),
                 noise_type=3, noise_exp=50000, stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu',
-                train_dir=None, num_actors=None):
+                train_dir=None, is_learner=None, actor_id=None):
     
         self.PER = PER
         self.CDQ = CDQ # True by default
@@ -144,6 +145,9 @@ class Agent():
 
         self.tau = tau
         self.train_dir = f"{train_dir}/trained_model" #'./rl-module/pytorch_train_dir/trained_model'
+        self.train_dir += f"/learner" if is_learner else f"/actor_{actor_id}"
+        if os.path.exists(self.train_dir) is False:
+            os.makedirs(self.train_dir)
 
         self.step_epochs = 0
         self.global_step = 0
@@ -171,7 +175,7 @@ class Agent():
             int(mem_size),
             (s_dim,),
             (a_dim,),
-            load_dir=self.train_dir+'_rp',
+            load_dir=None, #  if resume: self.train_dir+'_rp',
         )
         
         # ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
@@ -179,7 +183,7 @@ class Agent():
             int(mem_size),
             (s_dim,),
             (a_dim,),
-            load_dir=self.train_dir+'_model_rp',
+            load_dir=None, # if resume: self.train_dir+'_model_rp',
         )
         # ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
         self.rp_buffer_batch = batch_size
@@ -460,39 +464,39 @@ class Agent():
     
     def rollout_model_and_populate_model_rp_buffer(
         self,
-        model_rp_buffer,
         rollout_horizon,
         ):
         rollout_batch_size = self.rollout_batch_size
-        batch = self.rp_buffer.sample(rollout_batch_size)
+        batch = self.rp_buffer.sample(rollout_batch_size) # sample from the rp_buffer
         # model input: 2*state_dim, output: state_dim
         # use 1 state_dim for now
         initial_obs = batch.astuple() # TODO
         # TODO: initial_obs concatenate with itself
 
         model_state = self.model_env.reset(
-            initial_obs_batch=cast(np.ndarray, initial_obs) if not isinstance(initial_obs, domain.box.Box) else initial_obs,
+            initial_obs_batch=cast(np.ndarray, initial_obs),
             return_as_np=True,
         )
         accum_dones = np.zeros(initial_obs.shape[0], dtype=bool)
         obs = initial_obs
         
         s0_rec_buffer = np.zeros([self.s_dim])
-        s0_rec_buffer[-1*params.dict['state_dim']:] = obs
-        s1_rec_buffer = np.zeros([s_dim])
-        a = agent.get_action(s0_rec_buffer, True)
+        s1_rec_buffer = np.zeros([self.s_dim])
+        s0_rec_buffer[-1*7:] = obs # manually set the last 7 elements to be obs
+        # recurrent
+        a = self.get_action(s0_rec_buffer, True)
         a = a[0][0]
 
         new_model_buffer_data_list = []
-        for i in range(rollout_horizon - 1):
+        for i in range(rollout_horizon):
             s1, r, terminal, model_state = self.model_env.step(
                 a, 
                 model_state,
                 sample=True
             )
             s1_rec_buffer = np.concatenate(
-                (s0_rec_buffer[self.s_dim:], s1))
-            a1 = agent.get_action(s1_rec_buffer, True)
+                (s0_rec_buffer[7:], s1))
+            a1 = self.get_action(s1_rec_buffer, True)
             a1 = a1[0][0]
             fd = (
                 s0_rec_buffer,
@@ -509,6 +513,15 @@ class Agent():
         
         return new_model_buffer_data_list
 
+    def train_model_and_save_model_and_data(
+        self,
+    ):
+        train_model_and_save_model_and_data(
+            self.dynamics_model,
+            self.model_trainer,
+            self.replay_buffer, # save to the original replay buffer
+            work_dir=self.train_dir,
+        )
 
 
 
