@@ -11,7 +11,7 @@ then
     eval_duration=30
     num_actors=1
     memory_size=$((max_steps*num_actors))
-    dir="${cur_dir}/rl-module"
+    dir="${cur_dir}/rl_module"
 
     # sed "s/\"num_actors\"\: 1/\"num_actors\"\: $num_actors/" $cur_dir/params_base.json > "${dir}/params.json"
     # sed -i "s/\"memsize\"\: 5320000/\"memsize\"\: $memory_size/" "${dir}/params.json"
@@ -43,11 +43,11 @@ then
     # Here, we go with single actor
     #TODO: add actor
     echo "start $num_actors actors"
-    for i in `seq 1 $((num_actors))`
+    for i in `seq 0 $((num_actors-1))`
     do
         echo "actor_id start: $i"
         upl="wired48"
-        downl="constant-mbps-$i" #1: 12mbps, 2: 24mbps, 3: 36mbps, 4: 48mbps
+        downl="constant-mbps-$((i+1))" #1: 12mbps, 2: 24mbps, 3: 36mbps, 4: 48mbps
 
         # this part is fixed
         dl=48 # Mbps
@@ -58,7 +58,7 @@ then
         act_id=$((i))
 
         echo "starting actor $act_id with port $act_port on trace $downl"
-        ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs 0 ${training_session} > actor_$i.txt &
+        ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs 0 ${training_session} & # > actor_$i.txt &
         act_port=$((act_port+1))
         pids="$pids $!"
     done

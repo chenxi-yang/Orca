@@ -1,9 +1,8 @@
 Running orca-cubic: constant-mbps-1
 will be done in 0 seconds ...
-/newhome/cyang/Orca/rl-module/orca-server-mahimahi 44444 /newhome/cyang/Orca/rl-module 20 1 cubic 1 constant-mbps-1 wired48 10 orca-cubic-constant-mbps-1-wired48-10-20-160 0 160 0
-[start_server] sudo -u `whoami`   mm-delay 10 mm-link /newhome/cyang/Orca/rl-module/../traces/wired48 /newhome/cyang/Orca/rl-module/../traces/constant-mbps-1 --downlink-log=/newhome/cyang/Orca/rl-module/log/down-orca-cubic-constant-mbps-1-wired48-10-20-160 --uplink-queue=droptail --uplink-queue-args="packets=160" --downlink-queue=droptail --downlink-queue-args="packets=160" -- sh -c 'sudo -u `whoami` /newhome/cyang/Orca/rl-module/client $MAHIMAHI_BASE 1 44444' &
+/newhome/cyang/Orca/rl_module/orca-server-mahimahi 44444 /newhome/cyang/Orca/rl_module 20 1 cubic 1 constant-mbps-1 wired48 10 orca-cubic-constant-mbps-1-wired48-10-20-160 0 160 0
+[start_server] sudo -u `whoami`   mm-delay 10 mm-link /newhome/cyang/Orca/rl_module/../traces/wired48 /newhome/cyang/Orca/rl_module/../traces/constant-mbps-1 --downlink-log=/newhome/cyang/Orca/rl_module/log/down-orca-cubic-constant-mbps-1-wired48-10-20-160 --uplink-queue=droptail --uplink-queue-args="packets=160" --downlink-queue=droptail --downlink-queue-args="packets=160" -- sh -c 'sudo -u `whoami` /newhome/cyang/Orca/rl_module/client $MAHIMAHI_BASE 1 44444' &
 [start_server] Starting RL Module (Without load) ...
-/users/`whoami`/venv/bin/python /newhome/cyang/Orca/rl-module/d5.py --tb_interval=1 --base_path=/newhome/cyang/Orca/rl-module --task=1 --job_name=actor --train_dir=/newhome/cyang/Orca/rl-module --mem_r=15074 --mem_w=19455 --training_session=1 &[start_server] After 3 minutes, no response (OK_Signal) from the Actor 1 is received! We are going down down down ...
-Finished. actor 1$
+/users/`whoami`/venv/bin/python /newhome/cyang/Orca/rl_module/main.py --tb_interval=1 --base_path=/newhome/cyang/Orca/rl_module --task=1 --job_name=actor --train_dir=/newhome/cyang/Orca/rl_module --mem_r=16831 --mem_w=13258 --training_session=1 &Finished. actor 1$
 Doing Some Analysis ...
 Done

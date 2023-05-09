@@ -11,7 +11,7 @@ then
     eval_duration=30
     num_actors=1
     memory_size=$((max_steps*num_actors))
-    dir="${cur_dir}/rl-module"
+    dir="${cur_dir}/rl_module"
 
     sed "s/\"num_actors\"\: 1/\"num_actors\"\: $num_actors/" $cur_dir/params_base.json > "${dir}/params.json"
     sed -i "s/\"memsize\"\: 5320000/\"memsize\"\: $memory_size/" "${dir}/params.json"
