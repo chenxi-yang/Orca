@@ -14,6 +14,7 @@ from replay_buffer import (
 def create_one_dim_tr_model(
     s_dim,
     a_dim,
+    output_s_dim, 
     model_dir,
     model_normalization,
 ):
@@ -22,7 +23,7 @@ def create_one_dim_tr_model(
     """
     # TODO: use fixed configs for now
     in_size = s_dim + a_dim
-    out_size = s_dim + 1 # state + reward
+    out_size = output_s_dim + 1 # state + reward
 
     model = models.SymGaussianMLP(
         in_size=in_size,
@@ -119,6 +120,7 @@ def create_replay_buffer(
     datasize: int,
     obs_shape: Sequence[int],
     act_shape: Sequence[int],
+    next_obs_shape: Optional[Sequence[int]],
     obs_type: Type = np.float32,
     action_type: Type = np.float32,
     reward_type: Type = np.float32,
@@ -137,6 +139,7 @@ def create_replay_buffer(
         dataset_size,
         obs_shape,
         act_shape,
+        next_obs_shape=next_obs_shape,
         obs_type=obs_type,
         action_type=action_type,
         reward_type=reward_type,

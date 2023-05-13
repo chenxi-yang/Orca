@@ -121,6 +121,7 @@ class OneDTransitionRewardModel(Model):
         if self.input_normalizer:
             if hasattr(self, "model_normalization") and self.model_normalization:
             # Normalizer lives on device
+                # print(f"in model normalization {model_in.shape}")
                 model_in = self.input_normalizer.normalize(model_in).float().to(self.device)
         return model_in
 
@@ -128,8 +129,13 @@ class OneDTransitionRewardModel(Model):
         self, batch, _as_float: bool = False
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         obs, action, next_obs, reward, _ = batch.astuple()
+
         if self.target_is_delta:
-            target_obs = next_obs - obs
+            # if next_obs, obs are not from the same size
+            # print(f"next_obs {next_obs.shape} obs {obs.shape}")
+            # next_obs: state size; obs: state_size * K (with K - 1 look back)
+            # next_obs is the output, obs is the input
+            target_obs = next_obs - obs[:, -next_obs.shape[1]:]
             for dim in self.no_delta_list:
                 target_obs[..., dim] = next_obs[..., dim]
         else:
@@ -305,7 +311,7 @@ class OneDTransitionRewardModel(Model):
         if self.target_is_delta:
             # print(next_observs.shape)
             # print(obs.shape)
-            tmp_ = next_observs.add(obs)
+            tmp_ = next_observs.add(obs[:, -next_observs.shape[1]:])
             for dim in self.no_delta_list: # None
                 tmp_[:, dim] = next_observs[:, dim]
             next_observs = tmp_

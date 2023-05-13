@@ -1,1 +1,108 @@
-Eval/Return(Score) of actor 0: 10.14564464553977
+Epoch: 0; Eval/Return(Score) of actor 0: 4.839005589438373
+total time for actor-0: 5.231001377105713
+Epoch: 1; Eval/Return(Score) of actor 0: 5.988931115704502
+total time for actor-0: 4.5178961753845215
+Epoch: 2; Eval/Return(Score) of actor 0: 3.5829902945745533
+total time for actor-0: 2.754159450531006
+Epoch: 3; Eval/Return(Score) of actor 0: 0.31570666670096403
+total time for actor-0: 2.9932074546813965
+Epoch: 4; Eval/Return(Score) of actor 0: 0.4424195960194995
+total time for actor-0: 2.6971030235290527
+Epoch: 5; Eval/Return(Score) of actor 0: -20.471879058140036
+total time for actor-0: 3.1431915760040283
+Epoch: 6; Eval/Return(Score) of actor 0: 4.864639322782319
+total time for actor-0: 2.688598871231079
+Epoch: 7; Eval/Return(Score) of actor 0: 4.1011763677624815
+total time for actor-0: 4.530508279800415
+Epoch: 8; Eval/Return(Score) of actor 0: 1.20591331342082
+total time for actor-0: 5.039634466171265
+Epoch: 9; Eval/Return(Score) of actor 0: 4.387608132275091
+total time for actor-0: 4.626193523406982
+Epoch: 10; Eval/Return(Score) of actor 0: 6.644477307634911
+total time for actor-0: 2.674868106842041
+Epoch: 11; Eval/Return(Score) of actor 0: 11.085971748313057
+total time for actor-0: 2.7212986946105957
+Epoch: 12; Eval/Return(Score) of actor 0: 3.707904327525161
+total time for actor-0: 3.7715108394622803
+Epoch: 13; Eval/Return(Score) of actor 0: 3.201716725552294
+total time for actor-0: 2.6846601963043213
+Epoch: 14; Eval/Return(Score) of actor 0: 4.435116300757734
+total time for actor-0: 2.6905481815338135
+Epoch: 15; Eval/Return(Score) of actor 0: 5.382632024117513
+total time for actor-0: 4.516995429992676
+Epoch: 16; Eval/Return(Score) of actor 0: -6.609054949508218
+total time for actor-0: 4.58736252784729
+Epoch: 17; Eval/Return(Score) of actor 0: 9.972635619221956
+total time for actor-0: 4.464894771575928
+Epoch: 18; Eval/Return(Score) of actor 0: 5.7184484227013765
+total time for actor-0: 3.8397045135498047
+Epoch: 19; Eval/Return(Score) of actor 0: 3.60137966970547
+total time for actor-0: 2.6998021602630615
+Epoch: 20; Eval/Return(Score) of actor 0: -11.08790823031498
+total time for actor-0: 2.833359718322754
+Epoch: 21; Eval/Return(Score) of actor 0: 3.420730056766924
+total time for actor-0: 2.713266134262085
+Epoch: 22; Eval/Return(Score) of actor 0: 3.454342345792253
+total time for actor-0: 2.731783628463745
+Epoch: 23; Eval/Return(Score) of actor 0: -14.871276909494654
+total time for actor-0: 2.931870937347412
+Epoch: 24; Eval/Return(Score) of actor 0: 5.846042048772999
+total time for actor-0: 3.704960823059082
+Epoch: 25; Eval/Return(Score) of actor 0: 9.422054279763207
+total time for actor-0: 4.655889272689819
+Epoch: 26; Eval/Return(Score) of actor 0: -62.584952449473214
+total time for actor-0: 5.2668633460998535
+Epoch: 27; Eval/Return(Score) of actor 0: 2.742077659261291
+total time for actor-0: 2.7076027393341064
+Epoch: 28; Eval/Return(Score) of actor 0: 2.2223725030897117
+total time for actor-0: 2.726238965988159
+Epoch: 29; Eval/Return(Score) of actor 0: 4.322517715142299
+total time for actor-0: 4.430628061294556
+Epoch: 30; Eval/Return(Score) of actor 0: 3.635703179917743
+total time for actor-0: 2.864290952682495
+Epoch: 31; Eval/Return(Score) of actor 0: 8.333568944927936
+total time for actor-0: 2.783451795578003
+Epoch: 32; Eval/Return(Score) of actor 0: 7.702538858089089
+total time for actor-0: 4.361290693283081
+Epoch: 33; Eval/Return(Score) of actor 0: 4.051192432967667
+total time for actor-0: 2.9802086353302
+Epoch: 34; Eval/Return(Score) of actor 0: 5.464166169861982
+total time for actor-0: 4.74998140335083
+Epoch: 35; Eval/Return(Score) of actor 0: 4.5118023151023845
+total time for actor-0: 3.6961193084716797
+Epoch: 36; Eval/Return(Score) of actor 0: -1.6357972141057786
+total time for actor-0: 2.8850626945495605
+Epoch: 37; Eval/Return(Score) of actor 0: 4.286975179887623
+total time for actor-0: 2.7528116703033447
+Epoch: 38; Eval/Return(Score) of actor 0: 1.0239549156462533
+total time for actor-0: 4.667799949645996
+Epoch: 39; Eval/Return(Score) of actor 0: 4.336342134514653
+total time for actor-0: 3.9559922218322754
+Epoch: 40; Eval/Return(Score) of actor 0: 5.163923546289342
+total time for actor-0: 4.592367172241211
+Epoch: 41; Eval/Return(Score) of actor 0: -45.14868323041893
+total time for actor-0: 2.811047315597534
+Epoch: 42; Eval/Return(Score) of actor 0: 3.3293357230385325
+total time for actor-0: 3.381880044937134
+Epoch: 43; Eval/Return(Score) of actor 0: 4.299092679678512
+total time for actor-0: 3.122291088104248
+Epoch: 44; Eval/Return(Score) of actor 0: -3.2795312883409773
+total time for actor-0: 4.6867499351501465
+Epoch: 45; Eval/Return(Score) of actor 0: 4.913773540221131
+total time for actor-0: 3.8718619346618652
+Epoch: 46; Eval/Return(Score) of actor 0: 3.4454226914014687
+total time for actor-0: 3.925513982772827
+Epoch: 47; Eval/Return(Score) of actor 0: 3.188172942830334
+total time for actor-0: 2.819042444229126
+Epoch: 48; Eval/Return(Score) of actor 0: 3.6695234525926037
+total time for actor-0: 4.575300931930542
+Epoch: 49; Eval/Return(Score) of actor 0: -2.7264049884300907
+total time for actor-0: 4.794907569885254
+Epoch: 50; Eval/Return(Score) of actor 0: 5.37357127092909
+total time for actor-0: 4.864997148513794
+Epoch: 51; Eval/Return(Score) of actor 0: 2.5358435670741293
+total time for actor-0: 3.8649210929870605
+Epoch: 52; Eval/Return(Score) of actor 0: 2.5717619316649762
+total time for actor-0: 2.8529748916625977
+Epoch: 53; Eval/Return(Score) of actor 0: 2.362299383248087
+total time for actor-0: 2.8101999759674072

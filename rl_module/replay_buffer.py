@@ -430,6 +430,7 @@ class ReplayBuffer:
         capacity: int,
         obs_shape: Sequence[int],
         action_shape: Sequence[int],
+        next_obs_shape: Sequence[int],
         obs_type: Type = np.float32,
         action_type: Type = np.float32,
         reward_type: Type = np.float32,
@@ -446,7 +447,7 @@ class ReplayBuffer:
             capacity += max_trajectory_length
         # TODO replace all of these with a transition batch
         self.obs = np.empty((capacity, *obs_shape), dtype=obs_type)
-        self.next_obs = np.empty((capacity, *obs_shape), dtype=obs_type)
+        self.next_obs = np.empty((capacity, *next_obs_shape), dtype=obs_type)
         self.action = np.empty((capacity, *action_shape), dtype=action_type)
         self.reward = np.empty(capacity, dtype=reward_type)
         self.done = np.empty(capacity, dtype=bool)

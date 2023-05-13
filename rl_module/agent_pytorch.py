@@ -126,7 +126,7 @@ class CriticNetwork(nn.Module):
 
 
 class Agent():
-    def __init__(self, s_dim, a_dim, h1_shape, h2_shape, gamma=0.995, batch_size=8, lr_a=1e-4, lr_c=1e-3, tau=1e-3, mem_size=1e5, action_scale=1.0, action_range=(-1.0, 1.0),
+    def __init__(self, s_dim, a_dim, state_dim, model_s_dim, h1_shape, h2_shape, gamma=0.995, batch_size=8, lr_a=1e-4, lr_c=1e-3, tau=1e-3, mem_size=1e5, action_scale=1.0, action_range=(-1.0, 1.0),
                 noise_type=3, noise_exp=50000, stddev=0.1, PER=False, alpha=0.6, CDQ=True, LOSS_TYPE='HUBERT', device='cpu',
                 train_dir=None, is_learner=None, actor_id=None):
     
@@ -137,8 +137,10 @@ class Agent():
         self.lr_a = lr_a / 5 #TODO. important for convergence for now
         self.lr_c = lr_c / 5
 
-        self.s_dim = s_dim
+        self.s_dim = s_dim # recurrent dim
         self.a_dim = a_dim
+        self.state_dim = state_dim
+        self.model_s_dim = model_s_dim # use the original state_dim for the model input state for now
         self.gamma = gamma
 
         # TODO: to update
@@ -174,38 +176,49 @@ class Agent():
         # not PER
         self.rp_buffer = create_replay_buffer(
             int(mem_size),
-            (s_dim,),
+            (self.model_s_dim,),
             (a_dim,),
+            (self.state_dim,),
             load_dir=None, #  if resume: self.train_dir+'_rp',
         ) # the learner's replay buffer is actually the model's replay buffer
         
         # ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
         self.model_rp_buffer = create_replay_buffer(
-            int(mem_size),
-            (s_dim,),
+            1000000,
+            (s_dim,), # keep the one used to train the agent
             (a_dim,),
+            (s_dim,),
             load_dir=None, # if resume: self.train_dir+'_model_rp',
         )
+        print(f"Ini model_rp_buffer: {len(self.model_rp_buffer)}")
+        print(f"Ini replay buffer capacity: {self.model_rp_buffer.capacity}")
         # ReplayBuffer(int(mem_size), s_dim, a_dim, batch_size=batch_size)
         self.rp_buffer_batch = batch_size
         
+        # print(f"start create_one_dim_tr_model, is_learner={is_learner}; actor_id={actor_id}")
         self.dynamics_model = create_one_dim_tr_model(
-            self.s_dim,
+            self.model_s_dim,
             self.a_dim,
+            output_s_dim=self.state_dim,
             model_dir=None, # =f"{train_dir}/trained_model",
             model_normalization=True, # TODO: set to False?
         )  
+        # print(f"finish create_one_dim_tr_model, is_learner={is_learner}; actor_id={actor_id}")
+        # print(f"start model env, is_learner={is_learner}; actor_id={actor_id}")
         self.model_env = models.ModelEnv(
             # # env obs/act space
             # env_obs_space=self.s_dim,
             # env_act_space=self.a_dim,
             model=self.dynamics_model,
         )
+        # print(f"finish model env, is_learner={is_learner}; actor_id={actor_id}")
+        # print(f"start model trainer, is_learner={is_learner}; actor_id={actor_id}")
         self.model_trainer = models.ModelTrainer(
             self.dynamics_model,
             optim_lr=1e-3, # TODO
             weight_decay=1e-4, # TODO
         )
+        # print(f"finish model trainer, is_learner={is_learner}; actor_id={actor_id}")
         
         if noise_type == 1:
             self.actor_noise = OU_Noise(mu=np.zeros(a_dim), sigma=float(self.stddev) * np.ones(a_dim), dt=1, exp=self.noise_exp)
@@ -361,13 +374,13 @@ class Agent():
         self.rp_buffer.add(s0, a, s1, r, terminal)
 
     def store_many_experience(self, s0, a, r, s1, terminal, length):
-        self.rp_buffer.add_batch(s0, a, r, s1, terminal, length)
+        self.rp_buffer.add_batch(s0, a, s1, r, terminal, length)
     
     def model_store_experience(self, s0, a, r, s1, terminal):
-        self.model_rp_buffer.add(s0, a, r, s1, terminal)
+        self.model_rp_buffer.add(s0, a, s1, r, terminal)
 
-    def model_store_many_experience(self, s0, a, r, s1, terminal, length):
-        self.model_rp_buffer.add_batch(s0, a, r, s1, terminal, length)
+    def model_store_many_experience(self, s0, a, r, s1, terminal):
+        self.model_rp_buffer.add_batch(s0, a, s1, r, terminal)
 
     def sample_experince(self):
         return self.rp_buffer.sample(self.rp_buffer_batch)
@@ -389,10 +402,10 @@ class Agent():
             (
                 s0_batch,
                 action_batch,
-                reward_batch,
                 s1_batch,
+                reward_batch,
                 terminal_batch,
-            ) = self.model_rp_buffer.sample()  # only use the model buffer
+            ) = self.model_rp_buffer.sample(batch_size=256).astuple()  # only use the model buffer
         
         # print(f"s0_batch.shape: {s0_batch.shape}")
         s0_batch = torch.FloatTensor(s0_batch).to(self.device)
@@ -479,7 +492,8 @@ class Agent():
         # initial_obs = batch.astuple() # TODO
         # TODO: initial_obs concatenate with itself
         B, _ = initial_obs.shape
-        s0 = initial_obs[:, -1*7:]
+        # s0 = initial_obs[:, -1*7:] # treat the model for the state-dim first (even for the recurrent case)
+        s0 = initial_obs[:, -1*self.model_s_dim:]
 
         model_state = self.model_env.reset(
             initial_obs_batch=cast(np.ndarray, s0),
@@ -490,26 +504,28 @@ class Agent():
         
         s0_rec_buffer = np.zeros([B, self.s_dim])
         s1_rec_buffer = np.zeros([B, self.s_dim])
-        s0_rec_buffer[:, -1*7:] = obs # manually set the last 7 elements to be obs
+        s0_rec_buffer[:, -1*self.model_s_dim:] = obs # manually set the last 7 elements to be obs
         # recurrent
         a = self.get_action(s0_rec_buffer, True)
-        print(a.shape)
+        # print(f"action shape: {a.shape}")
         # a = a[0][0]
 
         # look at the first 7 steps first
         new_model_buffer_data_list = []
         for i in range(rollout_horizon):
+            # print(f"in rollout {i}, model state.shape: {model_state['obs'].shape}")
+            cur_state = model_state['obs'][:, self.state_dim:]
             s1, r, terminal, model_state = self.model_env.step(
                 a, 
                 model_state,
                 sample=False, # set to deterministic
             )
+            # print(f"shape: {s0_rec_buffer.shape, s1.shape}")
             s1_rec_buffer = np.concatenate(
-                (s0_rec_buffer[7:], s1))
+                (s0_rec_buffer[:, self.state_dim:], s1), axis=1)
             a1 = self.get_action(s1_rec_buffer, True)
             # a1 = a1[0][0]
-            print(s0_rec_buffer.shape, a.shape, r.shae, s1_rec_buffer.shape, terminal.shape)
-            exit(0)
+            # print(s0_rec_buffer.shape, a.shape, r.shape, s1_rec_buffer.shape, terminal.shape)
             fd = (
                 s0_rec_buffer,
                 a,
@@ -522,6 +538,8 @@ class Agent():
             s0 = s1
             a = a1
             s0_rec_buffer = s1_rec_buffer
+            next_obs = model_state["obs"]
+            model_state["obs"] = np.concatenate((cur_state, next_obs), axis=1)
         
         return new_model_buffer_data_list
 

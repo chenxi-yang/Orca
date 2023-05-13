@@ -30,7 +30,7 @@ import torch
 RP_DIR = f"./rl_module/rp_dir"
 
 
-def evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f_log_file):
+def evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f_log_file, actor_epoch):
     score_list = []
 
     eval_times = 1
@@ -85,8 +85,8 @@ def evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f
                 score_list.append(ep_r)
                 break
 
-    print(f"Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}")
-    f_log_file.write(f"Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}\n")
+    print(f"Epoch: {actor_epoch}; Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}")
+    f_log_file.write(f"Epoch: {actor_epoch}; Eval/Return(Score) of actor {config.task}: {np.mean(score_list)}\n")
 
     return eval_step_counter
 
@@ -177,7 +177,11 @@ def core():
     # each agent comes with a \pi_i, D_env_i(replay_buffer), D_model_i(model_replay_buffer), M_i(dynamics_model)
     # each learner comes with a D_model_i, M_i, \pi_i
     # TODO: add the model replay buffer, replay buffer, and dynamics model
-    agent = Agent(s_dim, a_dim, batch_size=params.dict['batch_size'], 
+    model_s_dim = params.dict['state_dim'] * 2
+    agent = Agent(s_dim, a_dim, 
+                    state_dim=params.dict['state_dim'],
+                    model_s_dim=model_s_dim,
+                    batch_size=params.dict['batch_size'], 
                     h1_shape=params.dict['h1_shape'],
                     h2_shape=params.dict['h2_shape'],
                     stddev=params.dict['stddev'],
@@ -214,7 +218,7 @@ def core():
     print(f"using Main {is_learner} {config.task}")
 
     rollout_length = 20
-    effective_model_rollouts_per_steps = 400
+    effective_model_rollouts_per_steps = 2
     freq_train_model = 64
     rollout_batch_size = effective_model_rollouts_per_steps * freq_train_model
     
@@ -250,6 +254,7 @@ def core():
             # the M_i and D_m_i (model_replay_buffer).
             # if collected, mark as collected and re-fresh the model_replay_buffer
             #TODO. or, wait for all the actors to finish
+            print(f"waiting for the actors in Learner")
             while True:
                 actor_i = 0
                 for signal_file_path in signal_file_path_lists:
@@ -266,6 +271,7 @@ def core():
                 
                 if len(finished_actor_id_list) > 0:
                     break
+            print(f"Done waiting in Learner")
             
             # there is at least one actor finished,randomly select the env idx
             selected_id = random.choice(finished_actor_id_list)
@@ -273,11 +279,14 @@ def core():
             selected_actor_model_rp_file_path = actor_model_rp_file_path_lists[selected_id]
             f_selected_model_rp = open(selected_actor_model_rp_file_path, 'rb')
             buffer_data = pickle.load(f_selected_model_rp)
+            print(f"In learner, buffer data size: {len(buffer_data)}")
+            print(f"before agent's model rp length: {len(agent.model_rp_buffer)}")
             for data in buffer_data:
-                agent.model_store_experience(data[0], data[1], data[2], data[3], data[4])
+                agent.model_store_many_experience(data[0], data[1], data[2][0].squeeze(), data[3], \
+                                                  np.array(data[4][0].squeeze(), np.bool))
                 # TODO: add the store_model_experience to the agent
             # TODO: load the dynamics_model with the selected one
-            print(f"agent's model rp length: {agent.model_rp_buffer.length_buf}")
+            print(f"after agent's model rp length: {len(agent.model_rp_buffer)}")
 
             # clear the selected actor's model_rp
             open(selected_actor_model_rp_file_path, 'w').close()
@@ -427,10 +436,16 @@ def core():
                     env.write_action(a)
                     continue
 
-                if params.dict['recurrent']:
-                    fd = (s0_rec_buffer, a, np.array([r]), s1_rec_buffer, np.array([terminal], np.float))
-                else:
-                    fd = (s0, a, np.array([r]), s1, np.array([terminal], np.float))
+                # if params.dict['recurrent']:
+                #     # for the training of the model
+                #     fd = (s0_rec_buffer[model_s_dim:], a, np.array([r]), s1_rec_buffer, np.array([terminal], np.float))
+                # else:
+                # for the training of the model
+
+                # no look back in training the model
+                # fd = (s0, a, np.array([r]), s1, np.array([terminal], np.float))
+                # look back for one more step to train the model
+                fd = (s0_rec_buffer[-model_s_dim:], a, np.array([r]), s1, np.array([terminal], np.float))
                 
                 if not config.eval:
                     fd_list.append(fd)
@@ -446,13 +461,14 @@ def core():
 
                 if steps_epoch == actor_epoch_length - 1:
                     print(f" ==========================Actor {config.task} starts evaluation===================")
-                    eval_step_counter = evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f_log_file)
+                    eval_step_counter = evaluate_TCP(env, agent, config, params, s0_rec_buffer, eval_step_counter, f_log_file, actor_epoch)
                     print(f" ==========================Actor {config.task} finishes evaluation===================")
             
+            print(f"In actor {config.task}, Done normal rp_buffer")
             # write the rp_buffer
-            actor_rp_f = open(actor_rp_file_path, 'wb')
-            write_rp(actor_rp_f, fd_list)
-            for data in fd_list:     
+            # actor_rp_f = open(actor_rp_file_path, 'wb')
+            # write_rp(actor_rp_f, fd_list)
+            for data in fd_list: 
                 agent.store_experience(data[0], data[1], data[2][0], data[3], data[4][0]) # remove the seq of r and terminal
             # train dynamics model
             agent.train_model_and_save_model_and_data()
@@ -462,6 +478,7 @@ def core():
                 rollout_length,
                 rollout_batch_size,
             )
+            print(f"new model buffer data list length: {len(new_model_buffer_data_list)}")
 
             # write the model_rp_buffer
             # TODO: distinguish whether append or write, but now for the one actor case, always write

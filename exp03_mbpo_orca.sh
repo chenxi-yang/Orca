@@ -58,7 +58,7 @@ then
         act_id=$((i))
 
         echo "starting actor $act_id with port $act_port on trace $downl"
-        ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs 0 ${training_session} & # > actor_$i.txt &
+        ./actor.sh ${act_port} $epoch ${first_time} $scheme_ $dir $act_id $downl $upl $del 0 $qs 0 ${training_session} &
         act_port=$((act_port+1))
         pids="$pids $!"
     done
